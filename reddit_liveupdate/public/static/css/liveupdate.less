@@ -1,10 +1,14 @@
+.live-update > .content {
+    padding-left: 10px;
+}
+
 .content > header {
     overflow: auto;
 
     h1 {
         float: left;
         font-size: 28px;
-        padding: 10px;
+        padding: 10px 0 10px 0;
         margin-top: 0;
     }
 
@@ -18,7 +22,7 @@
             text-transform: uppercase;
             font-weight: bold;
             font-size: medium;
-            margin: 0 .8em 0 .5em;
+            margin: 0 .8em 0 0;
         }
 
         .state.live:before {
@@ -47,138 +51,150 @@
     }
 }
 
-.liveupdate-listing table {
-    margin-top: 2em;
+.liveupdate-listing {
     max-width: 600px;
     min-width: 300px;
-    @transition-time: .3s;
+    margin-top: 2em;
 
-    tr.initial + tr {
+    &.loading {
+        padding-bottom: 30px;
+        background: url(../throbber.gif) center bottom no-repeat;
+    }
+
+    table {
+        @transition-time: .3s;
+
+        tr.initial + tr {
+            th {
+                font-size: medium;
+            }
+
+            td {
+                font-size: large;
+                padding-left: 1.2em;
+
+                a.author {
+                    font-size: small;
+                }
+            }
+        }
+
+        tr.stricken td.md {
+            text-decoration: line-through;
+        }
+
+        th, td {
+            vertical-align: top;
+            padding-bottom: .5em;
+        }
+
         th {
-            font-size: medium;
-        }
-
-        td {
-            font-size: large;
-            padding-left: 1.2em;
-
-            a.author {
-                font-size: small;
-            }
-        }
-    }
-
-    tr.stricken td.md {
-        text-decoration: line-through;
-    }
-
-    th, td {
-        vertical-align: top;
-        padding-bottom: .5em;
-    }
-
-    th {
-        font-size: small;
-
-        time {
-            font-size: smaller;
-            display: inline-block;
-            white-space: nowrap;
-            color: #888;
-            transition: color @transition-time;
-        }
-    }
-
-    td {
-        padding-left: 2em;
-
-        &.md {
-            overflow: visible;
-        }
-
-        form, p {
-            display: inline;
-        }
-
-        p:first-child {
-            margin-top: 0;
-        }
-
-        a.author {
-            color: #b6c6d6;
-            transition: color @transition-time;
-        }
-
-        ul.buttonrow {
-            display: none;
             font-size: small;
-            margin: .2em 0 0 0;
-
-            li {
-                display: inline-block;
-                margin: 0 1em 0 0;
-            }
-
-            button {
-                border: none;
-                background: inherit;
-                padding: 0;
-                font-size: small;
-                color: #369;
-            }
-        }
-    }
-
-    tr:hover {
-        th time {
-            color: black;
-            transition: color @transition-time;
-        }
-
-        a.author {
-            color: #369;
-            transition: color @transition-time;
-        }
-
-        ul.buttonrow {
-            display: block;
-        }
-    }
-
-    tr.separator {
-        font-size: small;
-
-        td {
-            font-size: smaller;
-            padding: .7em 0;
-            background: #fff url(../liveupdate-border.png) center left repeat-x;
 
             time {
-                background: white;
-                padding-right: 10px;
+                font-size: smaller;
+                display: inline-block;
+                white-space: nowrap;
+                color: #888;
+                transition: color @transition-time;
+            }
+        }
+
+        td {
+            padding-left: 2em;
+
+            &.md {
+                overflow: visible;
+            }
+
+            form, p {
+                display: inline;
+            }
+
+            p:first-child {
+                margin-top: 0;
+            }
+
+            a.author {
+                color: #b6c6d6;
+                transition: color @transition-time;
+            }
+
+            ul.buttonrow {
+                display: none;
+                font-size: small;
+                margin: .2em 0 0 0;
+
+                li {
+                    display: inline-block;
+                    margin: 0 1em 0 0;
+                }
+
+                button {
+                    border: none;
+                    background: inherit;
+                    padding: 0;
+                    font-size: small;
+                    color: #369;
+                }
+            }
+        }
+
+        tr:hover {
+            th time {
+                color: black;
+                transition: color @transition-time;
+            }
+
+            a.author {
+                color: #369;
+                transition: color @transition-time;
+            }
+
+            ul.buttonrow {
+                display: block;
+            }
+        }
+
+        tr.separator {
+            font-size: small;
+
+            td {
+                font-size: smaller;
+                padding: .7em 0;
+                background: #fff url(../liveupdate-border.png) center left repeat-x;
+
+                time {
+                    background: white;
+                    padding-right: 10px;
+                }
+            }
+        }
+
+        tr.initial {
+            color: #888;
+            border-bottom: 1px solid #888;
+
+            td {
+                padding: 0 0 .3em 0;
+            }
+        }
+
+        tr.final {
+            font-size: small;
+            color: #888;
+            border-top: 1px solid #888;
+
+            td {
+                font-size: smaller;
+                padding: 0 0 0 2.5em;
             }
         }
     }
+}
 
-    tr.initial {
-        color: #888;
-        border-bottom: 1px solid #888;
-
-        td {
-            padding: 0 0 .3em 0;
-        }
-    }
-
-    tr.final {
-        font-size: small;
-        color: #888;
-        border-top: 1px solid #888;
-
-        td {
-            font-size: smaller;
-            padding: 0 0 0 2.5em;
-        }
-    }
+#noresults {
+    margin-top: 10px;
 }
 
 .main-content {
@@ -186,8 +202,9 @@
     overflow: auto;
 }
 
-.nextprev {
-    margin-bottom: 1em;
+nav.nextprev {
+    margin: 10px 0;
+    font-size: small;
 }
 
 aside.sidebar {
@@ -214,9 +231,12 @@ aside.sidebar {
         font-weight: bold;
     }
 
+    .md + #discussions {
+        border-top: 1px dotted #999;
+    }
+
     #discussions {
         margin-top: .7em;
-        border-top: 1px dotted #999;
 
         p {
             font-size: small;
@@ -244,19 +264,6 @@ aside.sidebar {
             border-right: none;
         }
     }
-}
-
-.showmore {
-    width: 350px;
-    padding: 2em;
-    text-align: center;
-    color: #444;
-    background: #eef;
-    border: 1px solid #99c;
-    border-radius: 5px;
-    margin-top: 2em;
-    cursor: pointer;
-    font-size: medium;
 }
 
 @media all and (max-width: 700px) {
