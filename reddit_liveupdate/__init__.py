@@ -28,6 +28,10 @@ class LiveUpdate(Plugin):
         mc("/live/:event", controller="liveupdate", action="listing",
            conditions={"function": not_in_sr})
 
+        mc("/live/:event/pixel",
+           controller="liveupdatepixel", action="pixel",
+           conditions={"function": not_in_sr})
+
         mc("/live/:event/:action", controller="liveupdate",
            conditions={"function": not_in_sr})
 
@@ -35,7 +39,10 @@ class LiveUpdate(Plugin):
            conditions={"function": not_in_sr})
 
     def load_controllers(self):
-        from reddit_liveupdate.controllers import LiveUpdateController
+        from reddit_liveupdate.controllers import (
+            LiveUpdateController,
+            LiveUpdatePixelController,
+        )
 
         from r2.config.templates import api
         from reddit_liveupdate import pages
