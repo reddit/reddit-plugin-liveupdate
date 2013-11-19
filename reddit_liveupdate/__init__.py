@@ -1,12 +1,19 @@
 from pylons.i18n import N_
 
 from r2.config.routing import not_in_sr
+from r2.lib.configparse import ConfigValue
 from r2.lib.js import Module, LocalizedModule, TemplateFileSource
 from r2.lib.plugin import Plugin
 
 
 class LiveUpdate(Plugin):
     needs_static_build = True
+
+    config = {
+        ConfigValue.str: [
+            "liveupdate_pixel_domain",
+        ],
+    }
 
     js = {
         "liveupdate": LocalizedModule("liveupdate.js",
