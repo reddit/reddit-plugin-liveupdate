@@ -288,6 +288,14 @@ aside.sidebar {
         margin-bottom: 1em;
     }
 
+    .tagline {
+        margin-bottom: 1em;
+    }
+
+    .live-update > .content {
+        padding-left: 0;
+    }
+
     aside.sidebar {
         float: none;
         margin: 0 0 2em 0;
@@ -302,7 +310,7 @@ aside.sidebar {
         }
 
         #discussions {
-            border-top: 1px solid #369;
+            border-top: 1px solid #369 !important;
 
             h1 {
                 margin-top: 0;
@@ -315,9 +323,34 @@ aside.sidebar {
         }
     }
 
+    .liveupdate-listing tr.thing {
+        display: block;
+
+        th, td {
+            display: block;
+        }
+
+        th {
+            float: right;
+            margin-left: 1em;
+        }
+    }
+
     // always display the buttons in tiny-screen mode since it's likely a touch
     // device and hover doesn't work so well there.
     ul.buttonrow {
         display: block !important; // make up for super-specificity of the other rule
     }
+
+    ////////// hacks to clean up the header until the rest of reddit is responsive
+    #sr-header-area,
+    #header-bottom-right {
+        display: none;
+    }
+
+    .pagename {
+        display: block;
+        margin-top: 5px;
+    }
+    //////////
 }
