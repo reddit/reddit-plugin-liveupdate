@@ -112,7 +112,7 @@ r.liveupdate.SocketListener = {
     },
 
     _onMessage: function (ev) {
-        var parsed = $.parseJSON(ev.data)
+        var parsed = JSON.parse(ev.data)
         var $initial = this.$listing.find('tr.initial')
 
         // this must've been the first update. refresh to get a proper listing.
