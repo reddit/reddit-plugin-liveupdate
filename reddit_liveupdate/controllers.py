@@ -134,7 +134,7 @@ class LiveUpdateController(RedditController):
         websocket_url = None
         if not after and not before:
             websocket_url = websockets.make_url(
-                "/live/" + c.liveupdate_event._id, max_age=86400)
+                "/live/" + c.liveupdate_event._id, max_age=24 * 60 * 60)
 
         return pages.LiveUpdatePage(
             content=content,
