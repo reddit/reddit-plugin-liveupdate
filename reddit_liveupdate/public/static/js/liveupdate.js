@@ -87,7 +87,7 @@ r.liveupdate.SocketListener = {
             return
         }
 
-        r.debug('connecting...')
+        r.debug('liveupdate websocket: connecting...')
 
         this.$statusField.addClass('connecting')
 
@@ -99,13 +99,13 @@ r.liveupdate.SocketListener = {
     },
 
     _onSocketOpen: function () {
-        r.debug('connected')
+        r.debug('liveupdate websocket: connected')
         this.$statusField.removeClass('connecting')
         this.$statusField.text(r._('listening for updates...'))
     },
 
     _onSocketClose: function (ev) {
-        r.debug('lost connection')
+        r.debug('liveupdate websocket: lost connection')
         this.$statusField.removeClass('connecting')
 
         var delay = this._backoffTime * Math.pow(2, this._connectionAttempts)
