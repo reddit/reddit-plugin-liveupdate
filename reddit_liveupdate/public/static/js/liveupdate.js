@@ -101,7 +101,7 @@ r.liveupdate.SocketListener = {
     _onSocketOpen: function () {
         r.debug('liveupdate websocket: connected')
         this.$statusField.removeClass('connecting')
-        this.$statusField.text(r._('listening for updates...'))
+        this.$statusField.text(r._('updating in real time...'))
     },
 
     _onSocketClose: function (ev) {
