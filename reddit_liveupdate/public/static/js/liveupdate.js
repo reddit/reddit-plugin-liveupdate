@@ -66,6 +66,7 @@ r.liveupdate = {
 
 r.liveupdate.SocketListener = {
     _backoffTime: 2000,
+    _maximumRetries: 8,
 
     init: function (url) {
         var websocketsAvailable = 'WebSocket' in window
@@ -80,7 +81,7 @@ r.liveupdate.SocketListener = {
     },
 
     _connect: function () {
-        if (this._connectionAttempts > 8) {
+        if (this._connectionAttempts > this._maximumRetries) {
             this.$statusField.addClass('error')
                              .text(r._('could not connect to update servers. please refresh.'))
             return
