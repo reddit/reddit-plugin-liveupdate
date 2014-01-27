@@ -40,6 +40,11 @@ from reddit_liveupdate.validators import (
 )
 
 
+def send_websocket_broadcast(type, payload):
+    websockets.send_broadcast(namespace="/live/" + c.liveupdate_event._id,
+                              type=type, payload=payload)
+
+
 class LiveUpdateBuilder(QueryBuilder):
     def wrap_items(self, items):
         wrapped = []
@@ -132,7 +137,7 @@ class LiveUpdateController(RedditController):
 
         # don't generate a url unless this is the main page of an event
         websocket_url = None
-        if not after and not before:
+        if c.liveupdate_event.state == "live" and not after and not before:
             websocket_url = websockets.make_url(
                 "/live/" + c.liveupdate_event._id, max_age=24 * 60 * 60)
 
@@ -247,7 +252,7 @@ class LiveUpdateController(RedditController):
         builder = LiveUpdateBuilder(None)
         wrapped = builder.wrap_items([update])
         rendered = [w.render() for w in wrapped]
-        websockets.send_broadcast("/live/" + c.liveupdate_event._id, rendered)
+        send_websocket_broadcast(type="update", payload=rendered)
 
         # reset the submission form
         t = form.find("textarea")
@@ -265,6 +270,8 @@ class LiveUpdateController(RedditController):
         update.deleted = True
         LiveUpdateStream.add_update(c.liveupdate_event, update)
 
+        send_websocket_broadcast(type="delete", payload=update._fullname)
+
     @validatedForm(
         VLiveUpdateEventEditor(),
         VModhash(),
@@ -276,3 +283,5 @@ class LiveUpdateController(RedditController):
 
         update.stricken = True
         LiveUpdateStream.add_update(c.liveupdate_event, update)
+
+        send_websocket_broadcast(type="strike", payload=update._fullname)
