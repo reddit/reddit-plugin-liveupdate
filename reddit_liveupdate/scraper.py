@@ -17,7 +17,8 @@ iframe {{
 </style>
 </head>
 <body>
-<iframe src="//{domain}/live/{event_id}/embed" width="710" height="500">
+<iframe src="//{domain}/live/{event_id}/embed"
+        width="{width}" height="{height}">
 </iframe>
 </body>
 </html>
@@ -43,14 +44,19 @@ class _LiveUpdateScraper(Scraper):
 
     @classmethod
     def media_embed(cls, media_object):
+        width = 710
+        height = 500
+
         content = _EMBED_TEMPLATE.format(
             event_id=media_object["event_id"],
             domain=g.media_domain,
+            width=width,
+            height=height,
         )
 
         return MediaEmbed(
-            height=500,
-            width=710,
+            height=height,
+            width=width,
             content=content,
         )
 
