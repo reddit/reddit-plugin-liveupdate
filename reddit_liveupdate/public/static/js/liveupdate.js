@@ -21,11 +21,38 @@ r.liveupdate = {
                 'message:delete': this._onDelete,
                 'message:strike': this._onStrike,
                 'message:activity': this._onActivityUpdated,
+                'message:refresh': this._onRefresh,
+                'message:settings': this._onSettingsChanged,
                 'message:update': this._onNewUpdate
             }, this)
         }
 
+        Tinycon.setOptions({
+            'background': '#ff4500'
+        })
+
+        $(document).on({
+            'show': $.proxy(this, '_onPageVisible'),
+            'hide': $.proxy(this, '_onPageHide')
+        })
+        this._onPageVisible()
+
         this._fetchPixel()
+    },
+
+    _onPageVisible: function () {
+        if (this._needToFetchPixel) {
+            this._fetchPixel()
+        }
+
+        this._pageVisible = true
+        this._unreadUpdates = 0
+        this._needToFetchPixel = false
+        Tinycon.reset()
+    },
+
+    _onPageHide: function () {
+        this._pageVisible = false
     },
 
     _onWebSocketConnecting: function () {
@@ -49,6 +76,12 @@ r.liveupdate = {
                          .text(r._('lost connection to update server. one moment...'))
     },
 
+    _onRefresh: function () {
+        // delay a random amount to reduce thundering herd
+        var delay = Math.random() * 60 * 1000
+        setTimeout(function () { location.reload() }, delay)
+    },
+
     _onNewUpdate: function (data) {
         var $initial = this.$listing.find('tr.initial')
 
@@ -63,6 +96,11 @@ r.liveupdate = {
             }
             $initial.after($newThing)
         })
+
+        if (!this._pageVisible) {
+            this._unreadUpdates += data.length
+            Tinycon.setBubble(this._unreadUpdates)
+        }
     },
 
     _onDelete: function (id) {
@@ -80,6 +118,18 @@ r.liveupdate = {
 
         // TODO: animate this?
         $('#visitor-count .count').text(text)
+    },
+
+    _onSettingsChanged: function (changes) {
+        if ('title' in changes) {
+            $('#liveupdate-title').text(changes['title'])
+            $('#header .pagename a').text(changes['title'])
+            document.title = r._('[live]') + ' ' + changes['title']
+        }
+
+        if ('description' in changes) {
+            $('.sidebar .md').html($.unsafe(changes['description']))
+        }
     },
 
     _loadMoreIfNearBottom: function () {
@@ -136,6 +186,11 @@ r.liveupdate = {
     },
 
     _fetchPixel: function () {
+        if (!this._pageVisible) {
+            this._needToFetchPixel = true
+            return
+        }
+
         var pixel = new Image()
         pixel.src = '//' + r.config.liveupdate_pixel_domain +
                     '/live/' + r.config.liveupdate_event + '/pixel.png' +
