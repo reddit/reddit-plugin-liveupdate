@@ -60,6 +60,10 @@ r.liveupdate = {
     _onWebSocketConnecting: function () {
         this.$statusField.addClass('connecting')
                          .text(r._('connecting to update server...'))
+
+        if (this._reconnectCountdown) {
+            this._reconnectCountdown.cancel()
+        }
     },
 
     _onWebSocketConnected: function () {
@@ -75,7 +79,12 @@ r.liveupdate = {
 
     _onWebSocketReconnecting: function (delay) {
         this.$statusField.removeClass('connecting')
-                         .text(r._('lost connection to update server. one moment...'))
+
+        this._reconnectCountdown = new r.liveupdate.CountdownText(this.$statusField, delay, function (secondsRemaining) {
+            return r.P_('lost connection to update server. retrying in %(delay)s second...',
+                        'lost connection to update server. retrying in %(delay)s seconds...',
+                        secondsRemaining).format({'delay': secondsRemaining})
+        })
     },
 
     _onRefresh: function () {
@@ -205,5 +214,34 @@ r.liveupdate = {
         setTimeout($.proxy(this, '_fetchPixel'), delay)
     }
 }
+
+r.liveupdate.CountdownText = function ($el, delay, makeText) {
+    this.$el = $el
+    this._makeText = makeText
+    this._deadline = Date.now() + delay
+    this._interval = setInterval(_.bind(this._onTick, this), 1000)
+
+    this._onTick()
+}
+_.extend(r.liveupdate.CountdownText.prototype, {
+    cancel: function () {
+        if (this._interval) {
+            clearInterval(this._interval)
+            this._interval = null
+        }
+    },
+
+    _onTick: function () {
+        var delayRemaining = this._deadline - Date.now()
+            delayInSeconds = Math.round(delayRemaining / 1000)
+
+        if (delayInSeconds >= 1) {
+            var text = this._makeText(delayInSeconds)
+            this.$el.text(text)
+        } else {
+            this.cancel()
+        }
+    }
+})
 
 r.liveupdate.init()
