@@ -5,6 +5,7 @@ from pylons import g, c, request, response
 from pylons.i18n import _
 
 from r2.controllers import add_controller
+from r2.controllers.oauth2 import require_oauth2_scope
 from r2.controllers.reddit_base import RedditController, base_listing
 from r2.lib import websockets
 from r2.lib.base import BaseController, abort
@@ -74,6 +75,7 @@ class LiveUpdatePixelController(BaseController):
                 self._pixel_data = f.read()
         return self._pixel_data
 
+    @require_oauth2_scope("read")
     def GET_pixel(self, event):
         extension = request.environ.get("extension")
         if extension != "png":
@@ -112,6 +114,7 @@ class LiveUpdateController(RedditController):
                                   (c.liveupdate_event.is_reporter(c.user) or
                                    c.user_is_admin)))
 
+    @require_oauth2_scope("read")
     @validate(
         num=VLimit("limit", default=25, max_limit=100),
         after=VLiveUpdateID("after"),
@@ -163,6 +166,7 @@ class LiveUpdateController(RedditController):
             ).render()
 
 
+    @require_oauth2_scope("read")
     @base_listing
     def GET_discussions(self, num, after, reverse, count):
         builder = url_links_builder(
@@ -267,6 +271,7 @@ class LiveUpdateController(RedditController):
     def POST_rm_reporter(self, form, jquery, user):
         c.liveupdate_event.remove_reporter(user)
 
+    @require_oauth2_scope("submit")
     @validatedForm(
         VLiveUpdateEventReporter(),
         VModhash(),
@@ -294,6 +299,7 @@ class LiveUpdateController(RedditController):
         t = form.find("textarea")
         t.attr('rows', 3).html("").val("")
 
+    @require_oauth2_scope("edit")
     @validatedForm(
         VLiveUpdateEventReporter(),
         VModhash(),
@@ -308,6 +314,7 @@ class LiveUpdateController(RedditController):
 
         send_websocket_broadcast(type="delete", payload=update._fullname)
 
+    @require_oauth2_scope("edit")
     @validatedForm(
         VLiveUpdateEventReporter(),
         VModhash(),
