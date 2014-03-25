@@ -3,7 +3,7 @@
 <%def name="form_content()">
   %if not thing.embedded:
     <input type="hidden" name="name"
-      value="${thing.user.name if thing.user else ''}" />
+      value="${thing.user.name if thing.user else ''}">
   %endif
   <input type="hidden" name="type" value="${thing.permissions_type}">
   <input type="hidden" name="permissions"
