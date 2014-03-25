@@ -4,7 +4,10 @@ import itertools
 import pytz
 
 from babel.dates import format_time, format_datetime
-from pylons import c
+from pylons import c, g
+from r2.lib import websockets
+from r2.lib.media import Scraper
+from r2.lib.utils import extract_urls_from_markdown, domain
 
 
 def pairwise(iterable):
@@ -39,3 +42,41 @@ def pretty_time(dt):
             format="dd MMM YYYY HH:mm z",
             locale=c.locale,
         )
+
+
+def send_event_broadcast(event_id, type, payload):
+    """ Send a liveupdate broadcast for a specific event. """
+    websockets.send_broadcast(namespace="/live/" + event_id,
+                              type=type,
+                              payload=payload)
+
+
+def embeddable_urls(md):
+    """ Given some markdown, return a list of all URLs that are from
+        liveupdate-embeddable domains.
+    """
+    return [u for u in extract_urls_from_markdown(md)
+            if domain(u) in g.liveupdate_embeddable_domains]
+
+
+def generate_media_objects(urls, maxwidth=485, max_embeds=15):
+    """ Given a list of embed URLs, scrape and return their media objects. """
+    media_objects = []
+    for url in urls:
+        scraper = Scraper.for_url(url)
+        scraper.maxwidth = maxwidth
+
+        # TODO: Is there a situation in which we would need the secure media
+        # object? Are twitter/youtube/imgur appropriately protocol agnostic?
+        thumbnail, media_object, secure_media_object = scraper.scrape()
+        if media_object and 'oembed' in media_object:
+            # Use our exact passed URL to ensure matching in markdown.
+            # Some scrapers will canonicalize a URL to something we
+            # haven't seen yet.
+            media_object['oembed']['url'] = url
+            media_objects.append(media_object)
+
+        if len(media_objects) > max_embeds:
+            break
+
+    return media_objects

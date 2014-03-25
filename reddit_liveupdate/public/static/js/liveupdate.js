@@ -6,6 +6,7 @@ r.liveupdate = {
         this.$listing = $('.liveupdate-listing')
         this.$table = this.$listing.find('table tbody')
         this.$statusField = this.$listing.find('tr.initial td')
+        this._embedViewer = new r.liveupdate.EmbedViewer()
 
         this.$listing.find('nav.nextprev').remove()
         $(window)
@@ -24,7 +25,8 @@ r.liveupdate = {
                 'message:activity': this._onActivityUpdated,
                 'message:refresh': this._onRefresh,
                 'message:settings': this._onSettingsChanged,
-                'message:update': this._onNewUpdate
+                'message:update': this._onNewUpdate,
+                'message:render_embeds': this._onRenderEmbeds
             }, this)
             this._websocket.start()
         }
@@ -42,6 +44,7 @@ r.liveupdate = {
 
         this._pixelsFetched = 0
         this._fetchPixel()
+        this._embedViewer.init()
     },
 
     _onPageVisible: function () {
@@ -117,6 +120,14 @@ r.liveupdate = {
             this._unreadUpdates += data.length
             Tinycon.setBubble(this._unreadUpdates)
         }
+    },
+
+    _onRenderEmbeds: function (data) {
+        $('tr.id-LiveUpdate_' + data.liveupdate_id)
+            .data('embeds', data.media_embeds)
+            .addClass('pending-embed')
+
+        $(window).trigger('liveupdate:refreshEmbeds')
     },
 
     _onDelete: function (id) {
@@ -253,5 +264,101 @@ _.extend(r.liveupdate.Countdown.prototype, {
         }
     }
 })
+
+/**
+ * EmbedViewer displays matching embeddable links inline nicely for live updates (like tweets).
+ * Workflow:
+ * 1. On load of new listings, match the links within each of them to see if they have matching domains for potential
+ *    embedding (or RE's depending on lookup time.)
+ * 2. For each of those links, flag them to load the embed on visibility in the viewport.
+ * 3. On visibility in the viewport replace the matching link with the associated embed.
+**/
+r.liveupdate.EmbedViewer = function() {
+}
+
+_.extend(r.liveupdate.EmbedViewer.prototype, {
+    /**
+     * domains of every potentially embeddable domain. We use this for matching to determine if we should pull
+     * any possible embeds for this update. Used with an object with keys for fast matching.
+    **/
+    _embedDomains: _.object(r.config.liveupdate_embeddable_domains, true),
+    _embedBase: '//' + r.config.media_domain + '/mediaembed/liveupdate/' + r.config.liveupdate_event,
+
+    /** Borrowed from http://stackoverflow.com/a/7557433 **/
+    _isElementInViewport: function(el) {
+        var rect = el.getBoundingClientRect()
+
+        return (
+            rect.top >= 0 &&
+            rect.left >= 0 &&
+            rect.bottom <= (window.innerHeight || document.documentElement.clientHeight) &&
+            rect.right <= (window.innerWidth || document.documentElement.clientWidth)
+        )
+    },
+
+    /**
+     * Given an update with embeds, replace its embed links with proper embeds.
+    **/
+    _renderUpdateEmbeds: function(el) {
+        var $el = $(el),
+            updateId = $el.data('fullname'),
+            embeds = $el.data('embeds')
+
+        _.each(embeds, function(embed, embedIndex) {
+            var $link = $el.find('a[href="' + embed.url + '"]'),
+                embedUri = this._embedBase + '/' + updateId + '/' + embedIndex,
+                iframe = $('<iframe />').attr({
+                    'class': 'embedFrame embed-' + embedIndex,
+                    'src': embedUri,
+                    'width': embed.width,
+                    'height': embed.height
+                })
+            $link.replaceWith(iframe)
+        }, this)
+    },
+
+    /**
+     * Look for embeds in the viewport that have yet to be rendered, render
+     * and flag them.
+    **/
+    _renderVisibleEmbeds: function() {
+        $('.pending-embed').each(_.bind(function(i, el) {
+            if (this._isElementInViewport(el)) {
+                $(el).removeClass('pending-embed')
+                this._renderUpdateEmbeds(el)
+            }
+        }, this))
+    },
+
+    _handleMessage: function(e) {
+       var ev = e.originalEvent
+
+       if (ev.origin.replace(/^https?:\/\//,'') !== r.config.media_domain) {
+           return false
+       }
+
+       var data = JSON.parse(ev.data)
+       if (data.action === 'dimensionsChange') {
+           /* Yuck. A good reason to give embeds unique IDs. */
+           var $embedFrame = $('.id-LiveUpdate_' + data.updateId + ' .embed-' + data.embedIndex),
+               dimensions = data.dimensions.split('x')
+
+           $embedFrame.attr({
+               'width': dimensions[0],
+               'height': dimensions[1]
+           })
+       }
+    },
+
+    _listen: function() {
+       $(window).on('load resize scroll liveupdate:refreshEmbeds', $.proxy(this, '_renderVisibleEmbeds'))
+       $(window).on('message', this._handleMessage)
+    },
+
+    init: function() {
+        this._listen()
+    }
+})
+
 
 r.liveupdate.init()

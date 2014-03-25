@@ -8,7 +8,7 @@ from pylons import c, g
 from pylons.i18n import _, ungettext
 
 from r2.lib import filters
-from r2.lib.pages import Reddit, UserTableItem
+from r2.lib.pages import Reddit, UserTableItem, MediaEmbedBody
 from r2.lib.menus import NavMenu, NavButton
 from r2.lib.template_helpers import add_sr
 from r2.lib.memoize import memoize
@@ -36,9 +36,14 @@ class LiveUpdatePage(Reddit):
     extra_stylesheets = Reddit.extra_stylesheets + ["liveupdate.less"]
 
     def __init__(self, content, websocket_url=None):
+        # Convert set to list for JSON serializing
+        embeddable_domains = list(g.liveupdate_embeddable_domains)
+
         extra_js_config = {
             "liveupdate_event": c.liveupdate_event._id,
             "liveupdate_pixel_domain": g.liveupdate_pixel_domain,
+            "media_domain": g.media_domain,
+            "liveupdate_embeddable_domains": embeddable_domains
         }
 
         if websocket_url:
@@ -297,6 +302,10 @@ class LiveUpdateListing(Listing):
             items.append(update)
 
         return items
+
+
+class LiveUpdateMediaEmbedBody(MediaEmbedBody):
+    pass
 
 
 def liveupdate_add_props(user, wrapped):

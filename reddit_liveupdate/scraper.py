@@ -1,3 +1,6 @@
+import json
+import re
+import requests
 from pylons import g
 
 from r2.lib.hooks import HookRegistrar
@@ -61,6 +64,78 @@ class _LiveUpdateScraper(Scraper):
         )
 
 
+class _TwitterScraper(Scraper):
+    OEMBED_ENDPOINT = "https://api.twitter.com/1/statuses/oembed.json"
+    URL_MATCH = re.compile(r"""https?:
+                               //(www\.)?twitter\.com
+                               /\w{1,20}
+                               /status(es)?
+                               /\d+
+                            """, re.X)
+
+    def __init__(self, url, maxwidth=600, omit_script=False):
+        self.url = url
+        self.maxwidth = maxwidth
+        self.omit_script = False
+
+    @classmethod
+    def matches(cls, url):
+        return cls.URL_MATCH.match(url)
+
+    def _fetch_from_twitter(self):
+        params = {
+            "url": self.url,
+            "format": "json",
+            "maxwidth": self.maxwidth,
+            "omit_script": self.omit_script,
+        }
+
+        content = requests.get(self.OEMBED_ENDPOINT, params=params).content
+        return json.loads(content)
+
+    def _make_media_object(self, oembed):
+        if oembed.get("type") in ("video", "rich"):
+            return {
+                "type": "twitter.com",
+                "oembed": oembed,
+            }
+        return None
+
+    def scrape(self):
+        oembed = self._fetch_from_twitter()
+        if not oembed:
+            return None, None, None
+
+        media_object = self._make_media_object(oembed)
+
+        return (
+            None,  # no thumbnails for twitter
+            media_object,
+            media_object,  # Twitter's response is ssl ready by default
+        )
+
+    @classmethod
+    def media_embed(cls, media_object):
+        oembed = media_object["oembed"]
+
+        html = oembed.get("html")
+        width = oembed.get("width")
+
+        # Right now Twitter returns no height, so we get ''.
+        # We'll reset the height with JS dynamically, but if they support
+        # height in the future, this should work transparently.
+        height = oembed.get("height") or 0
+
+        if not html and width:
+            return
+
+        return MediaEmbed(
+            width=width,
+            height=height,
+            content=html,
+        )
+
+
 @hooks.on("scraper.factory")
 def make_scraper(url):
     parsed = UrlParser(url)
@@ -74,8 +149,16 @@ def make_scraper(url):
             else:
                 return _LiveUpdateScraper(event_id)
 
+    if (_TwitterScraper.matches(url)):
+        return _TwitterScraper(url)
+
 
 @hooks.on("scraper.media_embed")
 def make_media_embed(media_object):
-    if media_object.get("type") == "liveupdate":
+    media_type = media_object.get("type")
+
+    if media_type == "liveupdate":
         return _LiveUpdateScraper.media_embed(media_object)
+
+    if media_type == "twitter.com":
+        return _TwitterScraper.media_embed(media_object)

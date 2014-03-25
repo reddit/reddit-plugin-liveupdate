@@ -5,11 +5,14 @@ import uuid
 
 import pytz
 
+from pylons import g
+
 from pycassa.util import convert_uuid_to_time
 from pycassa.system_manager import TIME_UUID_TYPE, UTF8_TYPE
 
+from r2.lib import amqp, utils
 from r2.lib.db import tdb_cassandra
-from r2.lib import utils
+from reddit_liveupdate.utils import embeddable_urls, generate_media_objects
 
 
 class LiveUpdateEvent(tdb_cassandra.Thing):
@@ -82,9 +85,11 @@ class LiveUpdateStream(tdb_cassandra.View):
     }
 
     @classmethod
-    def add_update(cls, event, update):
+    def add_update(cls, event, update, parse_embeds=True):
         columns = cls._obj_to_column(update)
         cls._set_values(event._id, columns)
+        if parse_embeds:
+            cls.queue_update_embeds(event, update)
 
     @classmethod
     def get_update(cls, event, id):
@@ -96,6 +101,40 @@ class LiveUpdateStream(tdb_cassandra.View):
             raise tdb_cassandra.NotFound, "<LiveUpdate %s>" % id
         else:
             return LiveUpdate.from_json(id, data)
+
+    @classmethod
+    def queue_update_embeds(cls, event, update):
+        g.log.debug('queuing update of embeds for %s:%s' % (event, update))
+        msg = json.dumps({
+            'action': 'parse_embeds',
+            'liveupdate_id': unicode(update._id),  # serializing UUID
+            'event_id': event._id,  # This _id is already a string :(
+        })
+        amqp.add_item('liveupdate_q', msg)
+
+    @classmethod
+    def parse_embeds(cls, event_id, liveupdate_id, maxwidth=485):
+        """ Parse a liveupdate body, find embed-friendly URLs, scrape their
+            embeds, and update the embeds dict.
+
+            Return the newly altered liveupdate.
+        """
+        if isinstance(liveupdate_id, basestring):
+            liveupdate_id = uuid.UUID(liveupdate_id)
+
+        try:
+            event = LiveUpdateEvent._byID(event_id)
+            liveupdate = LiveUpdateStream.get_update(event, liveupdate_id)
+        except tdb_cassandra.NotFound:
+            g.log.warning("Couldn't find event or liveupdate for embedding: "
+                          "%s / %s" % (event_id, liveupdate_id))
+            return
+
+        urls = embeddable_urls(liveupdate.body)
+        liveupdate.media_objects = generate_media_objects(urls)
+        LiveUpdateStream.add_update(event, liveupdate, parse_embeds=False)
+
+        return liveupdate
 
     @classmethod
     def _obj_to_column(cls, entries):
@@ -115,6 +154,7 @@ class LiveUpdate(object):
     defaults = {
         "deleted": False,
         "stricken": False,
+        "media_objects": [],
     }
 
     def __init__(self, id=None, data=None):
@@ -153,6 +193,20 @@ class LiveUpdate(object):
     @property
     def _fullname(self):
         return "%s_%s" % (self.__class__.__name__, self._id)
+
+    @property
+    def embeds(self):
+        """ Return the media objects in a whitelisted format friendly for
+            rendering as json to the user. """
+
+        embeds = []
+        for media_object in self.media_objects:
+            embeds.append({
+                "url": media_object['oembed']['url'],
+                "width": media_object['oembed']['width'],
+                "height": media_object['oembed']['height'],
+            })
+        return embeds
 
 
 class ActiveVisitorsByLiveUpdateEvent(tdb_cassandra.View):
