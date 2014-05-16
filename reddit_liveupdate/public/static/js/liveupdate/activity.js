@@ -29,13 +29,11 @@
       var pixel
       var delay
 
-      /**
-       * we don't need to fire a heartbeat for GA on the first pixel request,
-       * also google analytics might not be enabled, so only use this if we're
-       * sure it's safe
-      */
+      // we don't need to fire a heartbeat for GA on the first pixel request,
+      // also google analytics might not be enabled, so only use this if we're
+      // sure it's safe
       if (this.reportsSent > 0 && window._gaq) {
-        // TODO: do something when we hit the 500 ping limit
+        // FIXME: do something when we hit the 500 ping limit
         _gaq.push(['_trackEvent', 'Heartbeat', 'Heartbeat', '', 0, true])
       }
 
