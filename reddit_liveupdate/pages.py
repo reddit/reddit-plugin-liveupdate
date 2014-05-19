@@ -20,14 +20,13 @@ from r2.lib.memoize import memoize
 from r2.lib.wrapped import Templated, Wrapped
 from r2.models import Account, Subreddit, Link, NotFound, Listing, UserListing
 from r2.lib.strings import strings
-from r2.lib.utils import tup, fuzz_activity
+from r2.lib.utils import tup
 from r2.lib.jsontemplates import (
     JsonTemplate,
     ObjectTemplate,
     ThingJsonTemplate,
 )
 
-from reddit_liveupdate.activity import ACTIVITY_FUZZING_THRESHOLD
 from reddit_liveupdate.permissions import ContributorPermissionSet
 from reddit_liveupdate.utils import pretty_time, pairwise
 
@@ -115,12 +114,9 @@ class LiveUpdateEventJsonTemplate(ThingJsonTemplate):
         if attr == "_fullname":
             return "LiveUpdateEvent_" + thing._id
         elif attr == "viewer_count":
-            if thing.active_visitors < ACTIVITY_FUZZING_THRESHOLD:
-                return fuzz_activity(thing.active_visitors)
-            else:
-                return thing.active_visitors
+            return thing.active_visitors
         elif attr == "viewer_count_fuzzed":
-            return thing.active_visitors < ACTIVITY_FUZZING_THRESHOLD
+            return thing.active_visitors_fuzzed
         elif attr == "description_html":
             return filters.spaceCompress(
                 filters.safemarkdown(thing.description) or "")
