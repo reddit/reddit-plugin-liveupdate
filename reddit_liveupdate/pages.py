@@ -347,7 +347,7 @@ class LiveUpdateOtherDiscussions(Templated):
 
 
 class LiveUpdateSeparator(Templated):
-    def __init__(self, older, newer):
+    def __init__(self, older):
         self.date = older.replace(minute=0, second=0, microsecond=0)
         self.date_str = pretty_time(self.date, allow_relative=False)
         Templated.__init__(self)
@@ -369,7 +369,7 @@ class LiveUpdateListing(Listing):
 
         for newer, older in pairwise(self.things):
             if newer._date.hour != older._date.hour:
-                yield LiveUpdateSeparator(older._date, newer._date)
+                yield LiveUpdateSeparator(older._date)
             yield older
 
 
