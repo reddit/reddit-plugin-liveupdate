@@ -6,17 +6,14 @@ body {
     background-color: #fcfcfc;
 }
 
-@keyframes blink {
+.blink-animation(@opacity: .1) {
     to {
         opacity: .1;
     }
 }
 
-@-webkit-keyframes blink {
-    to {
-        opacity: .1;
-    }
-}
+@keyframes blink { .blink-animation(); }
+@-webkit-keyframes blink { .blink-animation(); }
 
 body.liveupdate-event{
     @sidebar-width: 300px;
