@@ -1,3 +1,5 @@
+import sys
+
 from pylons.i18n import N_
 
 from r2.config.routing import not_in_sr
@@ -19,7 +21,7 @@ class MomentTranslations(LocaleSpecificSource):
         # TODO: minify this
         source = FileSource("lib/moment-langs/%s.js" % lang)
         if not source.path:
-            print "    WARNING: no moment.js support for %r" % lang
+            print >> sys.stderr, "    WARNING: no moment.js support for %r" % lang
             return ""
         return source.get_source()
 
