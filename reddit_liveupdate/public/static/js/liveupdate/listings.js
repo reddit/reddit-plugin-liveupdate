@@ -108,7 +108,10 @@
 
     initialize: function(options) {
       this.permissions = options.permissions
-      this.listenTo(this.model, 'change:stricken', this.onStrickenChange)
+      this.listenTo(this.model, {
+        'change:stricken': this.onStrickenChange,
+        'change:embeds': this.markPendingEmbeds,
+      })
     },
 
     addEditButtonsIfAllowed: function() {
@@ -148,6 +151,10 @@
       return this
     },
 
+    markPendingEmbeds: function() {
+      this.$el.addClass('pending-embed')
+    },
+
     render: function() {
       var time = parseTimestamp(this.model.get('date'))
 
@@ -165,7 +172,7 @@
         .onStrickenChange()
 
       if (this.model.get('embeds')) {
-        this.$el.addClass('pending-embed')
+        this.markPendingEmbeds()
       }
 
       return this
