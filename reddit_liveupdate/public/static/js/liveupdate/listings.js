@@ -202,7 +202,7 @@
 
     initialize: function(options) {
       this.permissions = options.permissions
-      this.timeText = new LiveUpdateTimeText({maxage: 0})
+      this.timeText = new LiveUpdateTimeText({maxage: false})
       this.timeTextScrollListener = new r.ui.TimeTextScrollListener({
         el: this.el,
         timeText: this.timeText,
