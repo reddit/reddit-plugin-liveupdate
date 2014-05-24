@@ -16,7 +16,7 @@
         return true
       }
 
-      return !!this._permissions[name]
+      return _.has(this._permissions, name)
     },
   })
 
