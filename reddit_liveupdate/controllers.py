@@ -202,10 +202,21 @@ class LiveUpdateController(RedditController):
                                     reverse=reverse, num=num,
                                     count=count)
         listing = pages.LiveUpdateListing(builder)
+        wrapped_listing = listing.listing()
         content = pages.LiveUpdateEventPage(
             event=c.liveupdate_event,
-            listing=listing.listing(),
+            listing=wrapped_listing,
             show_sidebar=not is_embed,
+        )
+
+        c.js_preload.set_wrapped(
+            "/live/" + c.liveupdate_event._id + "/about.json",
+            Wrapped(c.liveupdate_event),
+        )
+
+        c.js_preload.set_wrapped(
+            "/live/" + c.liveupdate_event._id + ".json",
+            wrapped_listing,
         )
 
         # don't generate a url unless this is the main page of an event

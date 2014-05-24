@@ -141,11 +141,6 @@ class LiveUpdateEventPage(Templated):
                                    for e in contributor_accounts),
                                    key=lambda e: e.name)
 
-        c.js_preload.set_wrapped(
-            "/live/" + c.liveupdate_event._id + "/about.json",
-            Wrapped(event),
-        )
-
         Templated.__init__(self)
 
 
@@ -350,16 +345,6 @@ class LiveUpdateSeparator(Templated):
 
 
 class LiveUpdateListing(Listing):
-    def listing(self, **kwargs):
-        listing = Listing.listing(self, **kwargs)
-
-        c.js_preload.set_wrapped(
-            "/live/" + c.liveupdate_event._id + ".json",
-            self,
-        )
-
-        return listing
-
     def things_with_separators(self):
         yield self.things[0]
 
