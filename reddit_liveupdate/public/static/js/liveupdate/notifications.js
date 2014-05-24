@@ -60,7 +60,7 @@
 
       var _this = this
       var titleText = $('#liveupdate-title').text()
-      var bodyText = $(update.get('body')).text()
+      var bodyText = $($.parseHTML(update.get('body'))).text()
       var notification = new Notification(titleText, {
         body: ellipsize(bodyText, 160),
         icon: r.utils.staticURL('liveupdate-notification-icon.png'),

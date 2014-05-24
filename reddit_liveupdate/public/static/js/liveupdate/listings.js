@@ -290,9 +290,9 @@
           .seconds(0)
           .milliseconds(0)
 
-        $el = $(r.templates.make('liveupdate/separator', {
+        $el = $($.parseHTML(r.templates.make('liveupdate/separator', {
           isoDate: separatorDate.toISOString(),
-        }))
+        })))
         this.timeText.refreshOne($el.find('time.live-timestamp'))
         return $el.get(0)
       }
