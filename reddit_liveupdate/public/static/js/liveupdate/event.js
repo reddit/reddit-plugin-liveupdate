@@ -18,8 +18,6 @@
   })
 
   exports.LiveUpdateEventView = Backbone.View.extend({
-    el: 'body > .content',
-
     initialize: function() {
       this.$titleEl = $('#liveupdate-title')
       this.$descriptionEl = $('#liveupdate-description')
