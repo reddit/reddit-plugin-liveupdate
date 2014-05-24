@@ -45,11 +45,9 @@
         return
       }
 
-      this.$descriptionEl.html(description)
-
-      if (!$('html').has(this.$descriptionEl).length) {
-        this.$descriptionEl.prependTo('aside.sidebar')
-      }
+      this.$descriptionEl
+        .html(description)
+        .prependTo('aside.sidebar')
     },
   })
 }(r, Backbone, jQuery)
