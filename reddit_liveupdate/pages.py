@@ -346,7 +346,8 @@ class LiveUpdateSeparator(Templated):
 
 class LiveUpdateListing(Listing):
     def things_with_separators(self):
-        yield self.things[0]
+        if self.things:
+            yield self.things[0]
 
         for newer, older in pairwise(self.things):
             if newer._date.hour != older._date.hour:
