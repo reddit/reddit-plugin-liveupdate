@@ -24,6 +24,11 @@ class ContributorPermissionSet(PermissionSet):
             "title": N_("edit"),
             "description": N_("strike and delete others' updates"),
         },
+
+        "complete": {
+            "title": N_("complete {verb}"),
+            "description": N_("end the stream of updates"),
+        },
     }
 
     def allow(self, permission):
