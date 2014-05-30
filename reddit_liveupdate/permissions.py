@@ -25,9 +25,9 @@ class ContributorPermissionSet(PermissionSet):
             "description": N_("strike and delete others' updates"),
         },
 
-        "complete": {
-            "title": N_("complete {verb}"),
-            "description": N_("end the stream of updates"),
+        "close": {
+            "title": N_("close stream"),
+            "description": N_("permanently close the stream"),
         },
     }
 

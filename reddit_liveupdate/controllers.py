@@ -441,7 +441,7 @@ class LiveUpdateController(RedditController):
         VLiveUpdateContributorWithPermission("close"),
         VModhash(),
     )
-    def POST_complete_stream(self, form, jquery):
+    def POST_close_stream(self, form, jquery):
         c.liveupdate_event.state = "complete"
         c.liveupdate_event._commit()
 

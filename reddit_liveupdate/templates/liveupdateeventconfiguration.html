@@ -37,7 +37,7 @@ $(function() {
   var $el = $('.danger-zone button');
   var confirmer = new r.ui.ConfirmButton({el: $el});
   $el.on('confirm', function() {
-    $.request('live/${c.liveupdate_event._id}/complete_stream')
+    $.request('live/${c.liveupdate_event._id}/close_stream')
   });
 })
 </script>
