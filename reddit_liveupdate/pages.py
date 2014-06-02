@@ -71,11 +71,11 @@ class LiveUpdatePage(Reddit):
                     "/edit",
                 ))
 
-            if c.liveupdate_permissions.allow("manage"):
-                tabs.append(NavButton(
-                    _("contributors"),
-                    "/contributors",
-                ))
+            # all contributors should see this so they can leave if they want
+            tabs.append(NavButton(
+                _("contributors"),
+                "/contributors",
+            ))
 
             toolbars.append(NavMenu(
                 tabs,
@@ -186,33 +186,56 @@ class ContributorTableItem(UserTableItem):
         return "live/%s/rm_contributor" % self.event._id
 
 
-class ContributorListing(UserListing):
-    type = "liveupdate_contributor"
+class InvitedContributorTableItem(ContributorTableItem):
+    type = "liveupdate_contributor_invite"
+
+    @property
+    def remove_action(self):
+        return "live/%s/rm_contributor_invite" % self.event._id
+
+
+class LiveUpdateInvitedContributorListing(UserListing):
+    type = "liveupdate_contributor_invite"
+
     permissions_form = LiveUpdateContributorPermissions(
         account=None,
         permissions=ContributorPermissionSet.SUPERUSER,
         embedded=True,
     )
 
-    def __init__(self, event, builder, editable=True):
+    def __init__(self, event, builder, editable=False):
         self.event = event
         UserListing.__init__(self, builder, addable=editable, nextprev=False)
 
     @property
+    def container_name(self):
+        return self.event._id
+
+    @property
     def destination(self):
-        return "live/%s/add_contributor" % self.event._id
+        return "live/%s/invite_contributor" % self.event._id
 
     @property
     def form_title(self):
-        return _("add contributor")
+        return _("invite contributor")
+
+    @property
+    def title(self):
+        return _("invited contributors")
+
+
+class LiveUpdateContributorListing(LiveUpdateInvitedContributorListing):
+    type = "liveupdate_contributor"
+
+    def __init__(self, event, builder, has_invite, is_contributor):
+        self.has_invite = has_invite
+        self.is_contributor = is_contributor
+        super(LiveUpdateContributorListing, self).__init__(
+            event, builder, editable=False)
 
     @property
     def title(self):
         return _("current contributors")
-
-    @property
-    def container_name(self):
-        return self.event._id
 
 
 class LinkBackToLiveUpdate(Templated):
