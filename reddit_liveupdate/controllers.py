@@ -1,3 +1,4 @@
+import collections
 import hashlib
 import os
 
@@ -18,6 +19,7 @@ from r2.lib.filters import safemarkdown
 from r2.lib.validator import (
     validate,
     validatedForm,
+    VAdmin,
     VBoolean,
     VByName,
     VCount,
@@ -26,16 +28,17 @@ from r2.lib.validator import (
     VLimit,
     VMarkdown,
     VModhash,
+    VOneOf,
     VInt,
     VUser,
 )
-from r2.models import QueryBuilder, Account, LinkListing, SimpleBuilder
+from r2.models import QueryBuilder, Account, LinkListing, SimpleBuilder, IDBuilder, Subreddit
 from r2.models.admintools import send_system_message
 from r2.lib.errors import errors
 from r2.lib.utils import url_links_builder
-from r2.lib.pages import PaneStack, Wrapped
+from r2.lib.pages import PaneStack, Wrapped, RedditError
 
-from reddit_liveupdate import pages
+from reddit_liveupdate import pages, queries
 from reddit_liveupdate.media_embeds import (
     get_live_media_embed,
     queue_parse_embeds,
@@ -46,6 +49,8 @@ from reddit_liveupdate.models import (
     LiveUpdateEvent,
     LiveUpdateStream,
     LiveUpdateContributorInvitesByEvent,
+    LiveUpdateReportsByAccount,
+    LiveUpdateReportsByEvent,
     ActiveVisitorsByLiveUpdateEvent,
 )
 from reddit_liveupdate.permissions import ContributorPermissionSet
@@ -53,6 +58,7 @@ from reddit_liveupdate.utils import send_event_broadcast
 from reddit_liveupdate.validators import (
     VLiveUpdate,
     VLiveUpdateContributorWithPermission,
+    VLiveUpdateEvent,
     VLiveUpdatePermissions,
     VLiveUpdateID,
 )
@@ -177,6 +183,15 @@ class LiveUpdateController(RedditController):
         if not c.liveupdate_event:
             self.abort404()
 
+        if c.liveupdate_event.banned and not c.user_is_admin:
+            error_page = RedditError(
+                _("this stream has been banned"),
+                "",
+                image="subreddit-banned.png",
+            )
+            request.environ["usable_error_content"] = error_page.render()
+            self.abort403()
+
         if c.user_is_loggedin:
             c.liveupdate_permissions = \
                     c.liveupdate_event.get_permissions(c.user)
@@ -210,16 +225,23 @@ class LiveUpdateController(RedditController):
                                        count=num, reverse=reverse)
         if after:
             query.column_start = after
-
         builder = LiveUpdateBuilder(query=query, skip=True,
                                     reverse=reverse, num=num,
                                     count=count)
         listing = pages.LiveUpdateListing(builder)
         wrapped_listing = listing.listing()
+
+        if c.user_is_loggedin:
+            report_type = LiveUpdateReportsByAccount.get_report(
+                c.user, c.liveupdate_event)
+        else:
+            report_type = None
+
         content = pages.LiveUpdateEventApp(
             event=c.liveupdate_event,
             listing=wrapped_listing,
             show_sidebar=not is_embed,
+            report_type=report_type,
         )
 
         c.js_preload.set_wrapped(
@@ -538,6 +560,132 @@ class LiveUpdateController(RedditController):
         _broadcast(type="complete", payload={})
 
         form.refresh()
+
+    @validatedForm(
+        VUser(),
+        VModhash(),
+        report_type=VOneOf("type", pages.REPORT_TYPES),
+    )
+    def POST_report(self, form, jquery, report_type):
+        if form.has_errors("type", errors.INVALID_OPTION):
+            return
+
+        if c.user._spam or c.user.ignorereports:
+            return
+
+        already_reported = LiveUpdateReportsByAccount.get_report(
+            c.user, c.liveupdate_event)
+        if already_reported:
+            self.abort403()
+
+        LiveUpdateReportsByAccount.create(
+            c.user, c.liveupdate_event, type=report_type)
+        queries.report_event(c.liveupdate_event)
+
+        not_yet_reported = g.cache.add(
+            "lu_reported_" + str(c.liveupdate_event._id), 1, time=3600)
+        if not_yet_reported:
+            send_system_message(
+                Subreddit._by_name(g.default_sr),
+                subject="live update stream reported",
+                body=
+                    "The live update stream [%(title)s](%(url)s) was just "
+                    "reported for %(reason)s.  Please see the "
+                    "[reports page](/live/reports) for more information." % {
+                        "title": c.liveupdate_event.title,
+                        "url": "/live/" + c.liveupdate_event._id,
+                        "reason": pages.REPORT_TYPES[report_type],
+                    },
+            )
+
+    @validatedForm(
+        VAdmin(),
+        VModhash(),
+    )
+    def POST_approve(self, form, jquery):
+        c.liveupdate_event.banned = False
+        c.liveupdate_event._commit()
+
+        queries.unreport_event(c.liveupdate_event)
+
+    @validatedForm(
+        VAdmin(),
+        VModhash(),
+    )
+    def POST_ban(self, form, jquery):
+        c.liveupdate_event.banned = True
+        c.liveupdate_event.banned_by = c.user.name
+        c.liveupdate_event._commit()
+
+        queries.unreport_event(c.liveupdate_event)
+
+        # force clients to refresh to get the ban page
+        _broadcast(type="refresh", payload={})
+
+
+class LiveUpdateEventBuilder(IDBuilder):
+    def thing_lookup(self, names):
+        return LiveUpdateEvent._byID(names, return_dict=False)
+
+    def wrap_items(self, items):
+        wrapped = []
+        for item in items:
+            w = self.wrap(item)
+            wrapped.append(w)
+        return wrapped
+
+    def keep_item(self, item):
+        return True
+
+
+class LiveUpdateReportedEventBuilder(LiveUpdateEventBuilder):
+    def wrap_items(self, items):
+        wrapped = LiveUpdateEventBuilder.wrap_items(self, items)
+        reports_by_event = LiveUpdateReportsByEvent._byID(
+            [w._id for w in wrapped])
+
+        for w in wrapped:
+            report_types = []
+            if w._id in reports_by_event:
+                report_types = reports_by_event[w._id]._values().values()
+
+            reports_by_type = collections.Counter()
+            for report_type in report_types:
+                reports_by_type[report_type] += 1
+
+            w.reports_by_type = reports_by_type
+        return wrapped
+
+
+@add_controller
+class LiveUpdateEventsController(RedditController):
+    @validate(
+        VAdmin(),
+        num=VLimit("limit", default=25, max_limit=100),
+        after=VLiveUpdateEvent("after"),
+        before=VLiveUpdateEvent("before"),
+        count=VCount("count"),
+    )
+    def GET_reports(self, num, after, before, count):
+        reverse = False
+        if before:
+            after = before
+            reverse = True
+
+        query = queries.get_reported_events()
+        builder = LiveUpdateReportedEventBuilder(
+            query,
+            num=num,
+            after=after,
+            reverse=reverse,
+            count=count,
+            wrap=pages.LiveUpdateReportedEventRow,
+        )
+        listing = pages.LiveUpdateReportedEventListing(builder)
+        return pages.LiveUpdatePage(
+            title=_("reported events"),
+            content=listing.listing(),
+        ).render()
 
 
 @add_controller
