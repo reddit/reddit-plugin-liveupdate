@@ -56,12 +56,28 @@ from reddit_liveupdate.models import (
 from reddit_liveupdate.permissions import ContributorPermissionSet
 from reddit_liveupdate.utils import send_event_broadcast
 from reddit_liveupdate.validators import (
+    is_event_configuration_valid,
+    EVENT_CONFIGURATION_VALIDATORS,
     VLiveUpdate,
     VLiveUpdateContributorWithPermission,
     VLiveUpdateEvent,
     VLiveUpdatePermissions,
     VLiveUpdateID,
 )
+
+
+CREATION_MESSAGE = """\
+hello! a live update stream has been created for you.
+
+* you can make updates from [the update page](%(base_url)s)
+* make sure to customize the title and sidebar on [the settings
+  page](%(base_url)s/edit)
+* invite others to help on [the contributors page](%(base_url)s/contributors)
+
+all of these links can be found in the tab bar at the top of each page.
+
+good luck!
+"""
 
 
 def _broadcast(type, payload):
@@ -309,15 +325,10 @@ class LiveUpdateController(RedditController):
     @validatedForm(
         VLiveUpdateContributorWithPermission("settings"),
         VModhash(),
-        title=VLength("title", max_length=120),
-        description=VMarkdown("description", empty_error=None),
+        **EVENT_CONFIGURATION_VALIDATORS
     )
     def POST_edit(self, form, jquery, title, description):
-        if form.has_errors("title", errors.NO_TEXT,
-                                    errors.TOO_LONG):
-            return
-
-        if form.has_errors("description", errors.TOO_LONG):
+        if not is_event_configuration_valid(form):
             return
 
         changes = {}
@@ -659,6 +670,45 @@ class LiveUpdateReportedEventBuilder(LiveUpdateEventBuilder):
 
 @add_controller
 class LiveUpdateEventsController(RedditController):
+    @validate(
+        VAdmin(),
+    )
+    def GET_create(self):
+        return pages.LiveUpdatePage(
+            title=_("create live update stream"),
+            content=pages.LiveUpdateCreate(),
+        ).render()
+
+    @validatedForm(
+        VAdmin(),
+        VModhash(),
+        user=VExistingUname("user"),
+        **EVENT_CONFIGURATION_VALIDATORS
+    )
+    def POST_create(self, form, jquery, title, description, user):
+        if not is_event_configuration_valid(form):
+            return
+
+        if form.has_errors("user",
+                           errors.USER_DOESNT_EXIST,
+                           errors.NO_USER):
+            return
+
+        event = LiveUpdateEvent.new(id=None, title=title)
+        event.add_contributor(user, ContributorPermissionSet.SUPERUSER)
+
+        url = "/live/" + event._id
+
+        send_system_message(
+            user,
+            subject="new live update stream",
+            body=CREATION_MESSAGE % {
+                "base_url": url,
+            },
+        )
+
+        form.redirect(url)
+
     @validate(
         VAdmin(),
         num=VLimit("limit", default=25, max_limit=100),
