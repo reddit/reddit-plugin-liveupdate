@@ -33,11 +33,11 @@ from r2.lib.validator import (
     VUser,
 )
 from r2.models import (
-    QueryBuilder,
     Account,
-    LinkListing,
-    SimpleBuilder,
     IDBuilder,
+    LinkListing,
+    QueryBuilder,
+    SimpleBuilder,
     Subreddit,
 )
 from r2.models.admintools import send_system_message
