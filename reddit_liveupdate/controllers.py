@@ -671,9 +671,7 @@ class LiveUpdateReportedEventBuilder(LiveUpdateEventBuilder):
             if w._id in reports_by_event:
                 report_types = reports_by_event[w._id]._values().values()
 
-            reports_by_type = collections.Counter()
-            for report_type in report_types:
-                reports_by_type[report_type] += 1
+            reports_by_type = collections.Counter(report_types)
 
             w.reports_by_type = reports_by_type
         return wrapped
