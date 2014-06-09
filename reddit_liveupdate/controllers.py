@@ -73,6 +73,15 @@ from reddit_liveupdate.validators import (
 )
 
 
+INVITE_MESSAGE = """\
+**oh my! you are invited to become a contributor to [%(title)s](%(url)s)**.
+
+*to accept* visit the [contributors page for the stream](%(url)s/contributors)
+and click "accept".
+
+*otherwise,* if you did not expect to receive this, you can simply ignore this
+invitation or report it.
+"""
 CREATION_MESSAGE = """\
 hello! a live update stream has been created for you.
 
@@ -424,11 +433,7 @@ class LiveUpdateController(RedditController):
         send_system_message(
             user,
             subject="invitation to contribute to " + c.liveupdate_event.title,
-            body=(
-                "**you are invited to become a contributor to [%(title)s](%(url)s)**.\n\n"
-                "*to accept* visit the [contributors page for the stream](%(url)s/contributors) and click \"accept\".\n\n"
-                "*otherwise,* if you did not expect to receive this, you can simply ignore this invitation or report it."
-            ) % {
+            body=INVITE_MESSAGE % {
                 "title": c.liveupdate_event.title,
                 "url": "/live/" + c.liveupdate_event._id,
             },
