@@ -24,7 +24,6 @@ from r2.lib.validator import (
     VByName,
     VCount,
     VExistingUname,
-    VLength,
     VLimit,
     VMarkdown,
     VModhash,
