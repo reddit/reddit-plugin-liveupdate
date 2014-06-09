@@ -85,7 +85,10 @@ all of these links can be found in the tab bar at the top of each page.
 
 good luck!
 """
-
+REPORTED_MESSAGE = """\
+The live update stream [%(title)s](%(url)s) was just reported for %(reason)s.
+Please see the [reports page](/live/reports) for more information.
+"""
 
 def _broadcast(type, payload):
     send_event_broadcast(c.liveupdate_event._id, type, payload)
@@ -610,14 +613,11 @@ class LiveUpdateController(RedditController):
             send_system_message(
                 Subreddit._by_name(g.default_sr),
                 subject="live update stream reported",
-                body=
-                    "The live update stream [%(title)s](%(url)s) was just "
-                    "reported for %(reason)s.  Please see the "
-                    "[reports page](/live/reports) for more information." % {
-                        "title": c.liveupdate_event.title,
-                        "url": "/live/" + c.liveupdate_event._id,
-                        "reason": pages.REPORT_TYPES[report_type],
-                    },
+                body=REPORTED_MESSAGE % {
+                    "title": c.liveupdate_event.title,
+                    "url": "/live/" + c.liveupdate_event._id,
+                    "reason": pages.REPORT_TYPES[report_type],
+                },
             )
 
     @validatedForm(
