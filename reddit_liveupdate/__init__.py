@@ -72,6 +72,7 @@ class LiveUpdate(Plugin):
 
             PermissionsDataSource({
                 "liveupdate_contributor": ContributorPermissionSet,
+                "liveupdate_contributor_invite": ContributorPermissionSet,
             }),
 
             localized_appendices=[

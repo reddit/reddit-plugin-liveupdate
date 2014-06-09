@@ -482,7 +482,11 @@ class LiveUpdateController(RedditController):
             return
 
         type, permissions = type_and_perms
-        c.liveupdate_event.update_contributor_permissions(user, permissions)
+        if type == "liveupdate_contributor":
+            c.liveupdate_event.update_contributor_permissions(user, permissions)
+        elif type == "liveupdate_contributor_invite":
+            LiveUpdateContributorInvitesByEvent.update_invite_permissions(
+                c.liveupdate_event, user, permissions)
 
         row = form.closest("tr")
         editor = row.find(".permissions").data("PermissionEditor")

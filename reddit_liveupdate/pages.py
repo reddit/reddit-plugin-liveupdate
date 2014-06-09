@@ -166,11 +166,11 @@ class LiveUpdateEventConfiguration(Templated):
 
 
 class LiveUpdateContributorPermissions(ModeratorPermissions):
-    def __init__(self, account, permissions, embedded=False):
+    def __init__(self, permissions_type, account, permissions, embedded=False):
         ModeratorPermissions.__init__(
             self,
             user=account,
-            permissions_type=ContributorTableItem.type,
+            permissions_type=permissions_type,
             permissions=permissions,
             editable=True,
             embedded=embedded,
@@ -184,7 +184,7 @@ class ContributorTableItem(UserTableItem):
         self.event = event
         self.render_class = ContributorTableItem
         self.permissions = LiveUpdateContributorPermissions(
-            contributor.account, contributor.permissions)
+            self.type, contributor.account, contributor.permissions)
         UserTableItem.__init__(self, contributor.account, editable=editable)
 
     @property
@@ -224,6 +224,7 @@ class LiveUpdateInvitedContributorListing(UserListing):
     type = "liveupdate_contributor_invite"
 
     permissions_form = LiveUpdateContributorPermissions(
+        permissions_type="liveupdate_contributor_invite",
         account=None,
         permissions=ContributorPermissionSet.SUPERUSER,
         embedded=True,

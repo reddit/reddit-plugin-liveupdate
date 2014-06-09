@@ -246,6 +246,10 @@ class LiveUpdateContributorInvitesByEvent(tdb_cassandra.View):
         cls._set_values(event._id, {user._id36: permissions.dumps()})
 
     @classmethod
+    def update_invite_permissions(cls, event, user, permissions):
+        cls.create(event, user, permissions)
+
+    @classmethod
     def get(cls, event, user):
         try:
             row = cls._byID(event._id, properties=[user._id36])
