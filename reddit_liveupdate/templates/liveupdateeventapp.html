@@ -91,7 +91,7 @@
 
       <form>
         ${utils.text_with_links(_("uh oh! how does this stream break %(reddits_rules)s?"),
-          reddits_rules=dict(link_text=_("reddit's rules"), path="/rules"))}
+          reddits_rules=dict(link_text=_("reddit's rules"), path="/rules", target="_blank"))}
 
         <ol>
           % for key, description in thing.report_types.iteritems():
