@@ -413,7 +413,7 @@ class LiveUpdateController(RedditController):
         # TODO: make this i18n-friendly when we have such a system for PMs
         send_system_message(
             user,
-            subject="invitation to contribute to ",
+            subject="invitation to contribute to " + c.liveupdate_event.title,
             body=(
                 "**you are invited to become a contributor to [%(title)s](%(url)s)**.\n\n"
                 "*to accept* visit the [contributors page for the stream](%(url)s/contributors) and click \"accept\".\n\n"
