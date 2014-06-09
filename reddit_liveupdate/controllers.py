@@ -32,7 +32,14 @@ from r2.lib.validator import (
     VInt,
     VUser,
 )
-from r2.models import QueryBuilder, Account, LinkListing, SimpleBuilder, IDBuilder, Subreddit
+from r2.models import (
+    QueryBuilder,
+    Account,
+    LinkListing,
+    SimpleBuilder,
+    IDBuilder,
+    Subreddit,
+)
 from r2.models.admintools import send_system_message
 from r2.lib.errors import errors
 from r2.lib.utils import url_links_builder
