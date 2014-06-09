@@ -270,7 +270,7 @@ class LiveUpdateContributorInvitesByEvent(tdb_cassandra.View):
 
     @classmethod
     def remove(cls, event, user):
-        cls._remove(event._id, user._id36)
+        cls._remove(event._id, [user._id36])
 
 
 class LiveUpdateReportsByAccount(tdb_cassandra.DenormalizedRelation):
