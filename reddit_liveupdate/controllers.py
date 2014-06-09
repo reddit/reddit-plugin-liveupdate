@@ -36,6 +36,7 @@ from r2.models import (
     Account,
     IDBuilder,
     LinkListing,
+    NotFound,
     QueryBuilder,
     SimpleBuilder,
     Subreddit,
@@ -607,18 +608,23 @@ class LiveUpdateController(RedditController):
             c.user, c.liveupdate_event, type=report_type)
         queries.report_event(c.liveupdate_event)
 
-        not_yet_reported = g.cache.add(
-            "lu_reported_" + str(c.liveupdate_event._id), 1, time=3600)
-        if not_yet_reported:
-            send_system_message(
-                Subreddit._by_name(g.default_sr),
-                subject="live update stream reported",
-                body=REPORTED_MESSAGE % {
-                    "title": c.liveupdate_event.title,
-                    "url": "/live/" + c.liveupdate_event._id,
-                    "reason": pages.REPORT_TYPES[report_type],
-                },
-            )
+        try:
+            default_subreddit = Subreddit._by_name(g.default_sr)
+        except NotFound:
+            pass
+        else:
+            not_yet_reported = g.cache.add(
+                "lu_reported_" + str(c.liveupdate_event._id), 1, time=3600)
+            if not_yet_reported:
+                send_system_message(
+                    default_subreddit,
+                    subject="live update stream reported",
+                    body=REPORTED_MESSAGE % {
+                        "title": c.liveupdate_event.title,
+                        "url": "/live/" + c.liveupdate_event._id,
+                        "reason": pages.REPORT_TYPES[report_type],
+                    },
+                )
 
     @validatedForm(
         VAdmin(),
