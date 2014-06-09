@@ -211,8 +211,8 @@ class LiveUpdateController(RedditController):
 
         if c.liveupdate_event.banned and not c.user_is_admin:
             error_page = RedditError(
-                _("this stream has been banned"),
-                "",
+                title=_("this stream has been banned"),
+                message="",
                 image="subreddit-banned.png",
             )
             request.environ["usable_error_content"] = error_page.render()
