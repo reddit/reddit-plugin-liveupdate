@@ -1,3 +1,4 @@
+import collections
 import hashlib
 import os
 
@@ -18,41 +19,85 @@ from r2.lib.filters import safemarkdown
 from r2.lib.validator import (
     validate,
     validatedForm,
+    VAdmin,
     VBoolean,
     VByName,
     VCount,
     VExistingUname,
-    VLength,
     VLimit,
     VMarkdown,
     VModhash,
+    VOneOf,
     VInt,
+    VUser,
 )
-from r2.models import QueryBuilder, Account, LinkListing, SimpleBuilder
+from r2.models import (
+    Account,
+    IDBuilder,
+    LinkListing,
+    NotFound,
+    QueryBuilder,
+    SimpleBuilder,
+    Subreddit,
+)
+from r2.models.admintools import send_system_message
 from r2.lib.errors import errors
 from r2.lib.utils import url_links_builder
-from r2.lib.pages import PaneStack, Wrapped
+from r2.lib.pages import PaneStack, Wrapped, RedditError
 
-from reddit_liveupdate import pages
+from reddit_liveupdate import pages, queries
 from reddit_liveupdate.media_embeds import (
     get_live_media_embed,
     queue_parse_embeds,
 )
 from reddit_liveupdate.models import (
+    InviteNotFoundError,
     LiveUpdate,
     LiveUpdateEvent,
     LiveUpdateStream,
+    LiveUpdateContributorInvitesByEvent,
+    LiveUpdateReportsByAccount,
+    LiveUpdateReportsByEvent,
     ActiveVisitorsByLiveUpdateEvent,
 )
 from reddit_liveupdate.permissions import ContributorPermissionSet
 from reddit_liveupdate.utils import send_event_broadcast
 from reddit_liveupdate.validators import (
+    is_event_configuration_valid,
+    EVENT_CONFIGURATION_VALIDATORS,
     VLiveUpdate,
     VLiveUpdateContributorWithPermission,
+    VLiveUpdateEvent,
     VLiveUpdatePermissions,
     VLiveUpdateID,
 )
 
+
+INVITE_MESSAGE = """\
+**oh my! you are invited to become a contributor to [%(title)s](%(url)s)**.
+
+*to accept* visit the [contributors page for the stream](%(url)s/contributors)
+and click "accept".
+
+*otherwise,* if you did not expect to receive this, you can simply ignore this
+invitation or report it.
+"""
+CREATION_MESSAGE = """\
+hello! a live update stream has been created for you.
+
+* you can make updates from [the update page](%(base_url)s)
+* make sure to customize the title and sidebar on [the settings
+  page](%(base_url)s/edit)
+* invite others to help on [the contributors page](%(base_url)s/contributors)
+
+all of these links can be found in the tab bar at the top of each page.
+
+good luck!
+"""
+REPORTED_MESSAGE = """\
+The live update stream [%(title)s](%(url)s) was just reported for %(reason)s.
+Please see the [reports page](/live/reports) for more information.
+"""
 
 def _broadcast(type, payload):
     send_event_broadcast(c.liveupdate_event._id, type, payload)
@@ -82,11 +127,10 @@ class LiveUpdateContributor(object):
 
 
 class LiveUpdateContributorBuilder(SimpleBuilder):
-    def __init__(self, event, editable):
+    def __init__(self, event, perms_by_contributor, editable):
         self.event = event
         self.editable = editable
 
-        perms_by_contributor = event.contributors
         contributor_accounts = Account._byID(
             perms_by_contributor.keys(), data=True)
         contributors = [
@@ -118,6 +162,15 @@ class LiveUpdateContributorBuilder(SimpleBuilder):
         for item in items:
             wrapped.append(self.wrap_item(item))
         return wrapped
+
+
+class LiveUpdateInvitedContributorBuilder(LiveUpdateContributorBuilder):
+    def wrap_item(self, item):
+        return pages.InvitedContributorTableItem(
+            item,
+            self.event,
+            editable=self.editable,
+        )
 
 
 @add_controller
@@ -165,6 +218,15 @@ class LiveUpdateController(RedditController):
         if not c.liveupdate_event:
             self.abort404()
 
+        if c.liveupdate_event.banned and not c.user_is_admin:
+            error_page = RedditError(
+                title=_("this stream has been banned"),
+                message="",
+                image="subreddit-banned.png",
+            )
+            request.environ["usable_error_content"] = error_page.render()
+            self.abort403()
+
         if c.user_is_loggedin:
             c.liveupdate_permissions = \
                     c.liveupdate_event.get_permissions(c.user)
@@ -198,16 +260,23 @@ class LiveUpdateController(RedditController):
                                        count=num, reverse=reverse)
         if after:
             query.column_start = after
-
         builder = LiveUpdateBuilder(query=query, skip=True,
                                     reverse=reverse, num=num,
                                     count=count)
         listing = pages.LiveUpdateListing(builder)
         wrapped_listing = listing.listing()
-        content = pages.LiveUpdateEventPage(
+
+        if c.user_is_loggedin:
+            report_type = LiveUpdateReportsByAccount.get_report(
+                c.user, c.liveupdate_event)
+        else:
+            report_type = None
+
+        content = pages.LiveUpdateEventApp(
             event=c.liveupdate_event,
             listing=wrapped_listing,
             show_sidebar=not is_embed,
+            report_type=report_type,
         )
 
         c.js_preload.set_wrapped(
@@ -227,7 +296,7 @@ class LiveUpdateController(RedditController):
                 "/live/" + c.liveupdate_event._id, max_age=24 * 60 * 60)
 
         if not is_embed:
-            return pages.LiveUpdatePage(
+            return pages.LiveUpdateEventPage(
                 content=content,
                 websocket_url=websocket_url,
                 page_classes=['liveupdate-event'],
@@ -238,7 +307,7 @@ class LiveUpdateController(RedditController):
                 abort(404)
             c.allow_framing = True
 
-            return pages.LiveUpdateEmbed(
+            return pages.LiveUpdateEventEmbed(
                 content=content,
                 websocket_url=websocket_url,
                 page_classes=['liveupdate-event'],
@@ -248,7 +317,7 @@ class LiveUpdateController(RedditController):
         if not is_api():
             self.abort404()
         content = Wrapped(c.liveupdate_event)
-        return pages.LiveUpdatePage(content=content).render()
+        return pages.LiveUpdateEventPage(content=content).render()
 
     @base_listing
     def GET_discussions(self, num, after, reverse, count):
@@ -260,7 +329,7 @@ class LiveUpdateController(RedditController):
             count=count,
         )
         listing = LinkListing(builder).listing()
-        return pages.LiveUpdatePage(
+        return pages.LiveUpdateEventPage(
             content=listing,
         ).render()
 
@@ -268,22 +337,17 @@ class LiveUpdateController(RedditController):
         VLiveUpdateContributorWithPermission("settings"),
     )
     def GET_edit(self):
-        return pages.LiveUpdatePage(
+        return pages.LiveUpdateEventPage(
             content=pages.LiveUpdateEventConfiguration(),
         ).render()
 
     @validatedForm(
         VLiveUpdateContributorWithPermission("settings"),
         VModhash(),
-        title=VLength("title", max_length=120),
-        description=VMarkdown("description", empty_error=None),
+        **EVENT_CONFIGURATION_VALIDATORS
     )
     def POST_edit(self, form, jquery, title, description):
-        if form.has_errors("title", errors.NO_TEXT,
-                                    errors.TOO_LONG):
-            return
-
-        if form.has_errors("description", errors.TOO_LONG):
+        if not is_event_configuration_valid(form):
             return
 
         changes = {}
@@ -304,16 +368,34 @@ class LiveUpdateController(RedditController):
     # TODO: pass listing params on
     def GET_contributors(self):
         editable = c.liveupdate_permissions.allow("manage")
-        builder = LiveUpdateContributorBuilder(c.liveupdate_event, editable)
-        listing = pages.ContributorListing(
-            c.liveupdate_event,
-            builder,
-            editable=editable,
-        ).listing()
 
-        pane_stack = PaneStack([pages.LinkBackToLiveUpdate(), listing])
-        return pages.LiveUpdatePage(
-            content=pane_stack,
+        content = [pages.LinkBackToLiveUpdate()]
+
+        contributors = c.liveupdate_event.contributors
+        invites = LiveUpdateContributorInvitesByEvent.get_all(c.liveupdate_event)
+
+        contributor_builder = LiveUpdateContributorBuilder(
+            c.liveupdate_event, contributors, editable)
+        contributor_listing = pages.LiveUpdateContributorListing(
+            c.liveupdate_event,
+            contributor_builder,
+            has_invite=c.user._id in invites,
+            is_contributor=c.user._id in contributors,
+        ).listing()
+        content.append(contributor_listing)
+
+        if editable:
+            invite_builder = LiveUpdateInvitedContributorBuilder(
+                c.liveupdate_event, invites, editable)
+            invite_listing = pages.LiveUpdateInvitedContributorListing(
+                c.liveupdate_event,
+                invite_builder,
+                editable=editable,
+            ).listing()
+            content.append(invite_listing)
+
+        return pages.LiveUpdateEventPage(
+            content=PaneStack(content),
         ).render()
 
     @validatedForm(
@@ -322,7 +404,7 @@ class LiveUpdateController(RedditController):
         user=VExistingUname("name"),
         type_and_perms=VLiveUpdatePermissions("type", "permissions"),
     )
-    def POST_add_contributor(self, form, jquery, user, type_and_perms):
+    def POST_invite_contributor(self, form, jquery, user, type_and_perms):
         if form.has_errors("name", errors.USER_DOESNT_EXIST,
                                    errors.NO_USER):
             return
@@ -332,16 +414,72 @@ class LiveUpdateController(RedditController):
             return
 
         type, permissions = type_and_perms
-        c.liveupdate_event.add_contributor(user, permissions)
 
-        # TODO: send PM to new contributor
+        invites = LiveUpdateContributorInvitesByEvent.get_all(c.liveupdate_event)
+        if user._id in invites or user._id in c.liveupdate_event.contributors:
+            c.errors.add(errors.LIVEUPDATE_ALREADY_CONTRIBUTOR, field="name")
+            form.has_errors("name", errors.LIVEUPDATE_ALREADY_CONTRIBUTOR)
+            return
+
+        if len(invites) >= g.liveupdate_invite_quota:
+            c.errors.add(errors.LIVEUPDATE_TOO_MANY_INVITES, field="name")
+            form.has_errors("name", errors.LIVEUPDATE_TOO_MANY_INVITES)
+            return
+
+        LiveUpdateContributorInvitesByEvent.create(
+            c.liveupdate_event, user, permissions)
+
+        # TODO: make this i18n-friendly when we have such a system for PMs
+        send_system_message(
+            user,
+            subject="invitation to contribute to " + c.liveupdate_event.title,
+            body=INVITE_MESSAGE % {
+                "title": c.liveupdate_event.title,
+                "url": "/live/" + c.liveupdate_event._id,
+            },
+        )
 
         # add the user to the table
         contributor = LiveUpdateContributor(user, permissions)
-        user_row = pages.ContributorTableItem(
+        user_row = pages.InvitedContributorTableItem(
             contributor, c.liveupdate_event, editable=True)
-        jquery(".liveupdate_contributor-table").show(
+        jquery(".liveupdate_contributor_invite-table").show(
             ).find("table").insert_table_rows(user_row)
+
+    @validatedForm(
+        VUser(),
+        VModhash(),
+    )
+    def POST_leave_contributor(self, form, jquery):
+        c.liveupdate_event.remove_contributor(c.user)
+
+    @validatedForm(
+        VLiveUpdateContributorWithPermission("manage"),
+        VModhash(),
+        user=VByName("id", thing_cls=Account),
+    )
+    def POST_rm_contributor_invite(self, form, jquery, user):
+        LiveUpdateContributorInvitesByEvent.remove(
+            c.liveupdate_event, user)
+
+    @validatedForm(
+        VUser(),
+        VModhash(),
+    )
+    def POST_accept_contributor_invite(self, form, jquery):
+        try:
+            permissions = LiveUpdateContributorInvitesByEvent.get(
+                c.liveupdate_event, c.user)
+        except InviteNotFoundError:
+            c.errors.add(errors.LIVEUPDATE_NO_INVITE_FOUND)
+            form.set_error(errors.LIVEUPDATE_NO_INVITE_FOUND, None)
+            return
+
+        LiveUpdateContributorInvitesByEvent.remove(
+            c.liveupdate_event, c.user)
+
+        c.liveupdate_event.add_contributor(c.user, permissions)
+        jquery.refresh()
 
     @validatedForm(
         VLiveUpdateContributorWithPermission("manage"),
@@ -359,7 +497,11 @@ class LiveUpdateController(RedditController):
             return
 
         type, permissions = type_and_perms
-        c.liveupdate_event.update_contributor_permissions(user, permissions)
+        if type == "liveupdate_contributor":
+            c.liveupdate_event.update_contributor_permissions(user, permissions)
+        elif type == "liveupdate_contributor_invite":
+            LiveUpdateContributorInvitesByEvent.update_invite_permissions(
+                c.liveupdate_event, user, permissions)
 
         row = form.closest("tr")
         editor = row.find(".permissions").data("PermissionEditor")
@@ -448,6 +590,161 @@ class LiveUpdateController(RedditController):
         _broadcast(type="complete", payload={})
 
         form.refresh()
+
+    @validatedForm(
+        VUser(),
+        VModhash(),
+        report_type=VOneOf("type", pages.REPORT_TYPES),
+    )
+    def POST_report(self, form, jquery, report_type):
+        if form.has_errors("type", errors.INVALID_OPTION):
+            return
+
+        if c.user._spam or c.user.ignorereports:
+            return
+
+        already_reported = LiveUpdateReportsByAccount.get_report(
+            c.user, c.liveupdate_event)
+        if already_reported:
+            self.abort403()
+
+        LiveUpdateReportsByAccount.create(
+            c.user, c.liveupdate_event, type=report_type)
+        queries.report_event(c.liveupdate_event)
+
+        try:
+            default_subreddit = Subreddit._by_name(g.default_sr)
+        except NotFound:
+            pass
+        else:
+            not_yet_reported = g.cache.add(
+                "lu_reported_" + str(c.liveupdate_event._id), 1, time=3600)
+            if not_yet_reported:
+                send_system_message(
+                    default_subreddit,
+                    subject="live update stream reported",
+                    body=REPORTED_MESSAGE % {
+                        "title": c.liveupdate_event.title,
+                        "url": "/live/" + c.liveupdate_event._id,
+                        "reason": pages.REPORT_TYPES[report_type],
+                    },
+                )
+
+    @validatedForm(
+        VAdmin(),
+        VModhash(),
+    )
+    def POST_approve(self, form, jquery):
+        c.liveupdate_event.banned = False
+        c.liveupdate_event._commit()
+
+        queries.unreport_event(c.liveupdate_event)
+
+    @validatedForm(
+        VAdmin(),
+        VModhash(),
+    )
+    def POST_ban(self, form, jquery):
+        c.liveupdate_event.banned = True
+        c.liveupdate_event.banned_by = c.user.name
+        c.liveupdate_event._commit()
+
+        queries.unreport_event(c.liveupdate_event)
+
+
+class LiveUpdateEventBuilder(IDBuilder):
+    def thing_lookup(self, names):
+        return LiveUpdateEvent._byID(names, return_dict=False)
+
+    def wrap_items(self, items):
+        return [self.wrap(item) for item in items]
+
+    def keep_item(self, item):
+        return True
+
+
+class LiveUpdateReportedEventBuilder(LiveUpdateEventBuilder):
+    def wrap_items(self, items):
+        wrapped = LiveUpdateEventBuilder.wrap_items(self, items)
+        reports_by_event = LiveUpdateReportsByEvent._byID(
+            [w._id for w in wrapped])
+
+        for w in wrapped:
+            report_types = []
+            if w._id in reports_by_event:
+                report_types = reports_by_event[w._id]._values().values()
+            w.reports_by_type = collections.Counter(report_types)
+        return wrapped
+
+
+@add_controller
+class LiveUpdateEventsController(RedditController):
+    @validate(
+        VAdmin(),
+    )
+    def GET_create(self):
+        return pages.LiveUpdatePage(
+            title=_("create live update stream"),
+            content=pages.LiveUpdateCreate(),
+        ).render()
+
+    @validatedForm(
+        VAdmin(),
+        VModhash(),
+        user=VExistingUname("user"),
+        **EVENT_CONFIGURATION_VALIDATORS
+    )
+    def POST_create(self, form, jquery, title, description, user):
+        if not is_event_configuration_valid(form):
+            return
+
+        if form.has_errors("user",
+                           errors.USER_DOESNT_EXIST,
+                           errors.NO_USER):
+            return
+
+        event = LiveUpdateEvent.new(id=None, title=title)
+        event.add_contributor(user, ContributorPermissionSet.SUPERUSER)
+
+        url = "/live/" + event._id
+
+        send_system_message(
+            user,
+            subject="new live update stream",
+            body=CREATION_MESSAGE % {
+                "base_url": url,
+            },
+        )
+
+        form.redirect(url)
+
+    @validate(
+        VAdmin(),
+        num=VLimit("limit", default=25, max_limit=100),
+        after=VLiveUpdateEvent("after"),
+        before=VLiveUpdateEvent("before"),
+        count=VCount("count"),
+    )
+    def GET_reports(self, num, after, before, count):
+        reverse = False
+        if before:
+            after = before
+            reverse = True
+
+        query = queries.get_reported_events()
+        builder = LiveUpdateReportedEventBuilder(
+            query,
+            num=num,
+            after=after,
+            reverse=reverse,
+            count=count,
+            wrap=pages.LiveUpdateReportedEventRow,
+        )
+        listing = pages.LiveUpdateReportedEventListing(builder)
+        return pages.LiveUpdatePage(
+            title=_("reported events"),
+            content=listing.listing(),
+        ).render()
 
 
 @add_controller

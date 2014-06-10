@@ -1,7 +1,8 @@
+import collections
 import urllib
 
 from pylons import c, g
-from pylons.i18n import _, ungettext
+from pylons.i18n import _, ungettext, N_
 
 from r2.lib import filters
 from r2.lib.pages import (
@@ -28,8 +29,22 @@ from reddit_liveupdate.utils import pretty_time
 
 
 class LiveUpdatePage(Reddit):
-    extension_handling = False
     extra_stylesheets = Reddit.extra_stylesheets + ["liveupdate.less"]
+
+    def __init__(self, title, content, **kwargs):
+        Reddit.__init__(self,
+            title=title,
+            show_sidebar=False,
+            content=content,
+            **kwargs
+        )
+
+    def build_toolbars(self):
+        return []
+
+
+class LiveUpdateEventPage(LiveUpdatePage):
+    extension_handling = False
 
     def __init__(self, content, websocket_url=None, **kwargs):
         extra_js_config = {
@@ -46,9 +61,8 @@ class LiveUpdatePage(Reddit):
         if c.liveupdate_event.state == "live":
             title = _("[live]") + " " + title
 
-        Reddit.__init__(self,
+        LiveUpdatePage.__init__(self,
             title=title,
-            show_sidebar=False,
             content=content,
             extra_js_config=extra_js_config,
             **kwargs
@@ -71,11 +85,11 @@ class LiveUpdatePage(Reddit):
                     "/edit",
                 ))
 
-            if c.liveupdate_permissions.allow("manage"):
-                tabs.append(NavButton(
-                    _("contributors"),
-                    "/contributors",
-                ))
+            # all contributors should see this so they can leave if they want
+            tabs.append(NavButton(
+                _("contributors"),
+                "/contributors",
+            ))
 
             toolbars.append(NavMenu(
                 tabs,
@@ -86,7 +100,7 @@ class LiveUpdatePage(Reddit):
         return toolbars
 
 
-class LiveUpdateEmbed(LiveUpdatePage):
+class LiveUpdateEventEmbed(LiveUpdatePage):
     extra_page_classes = ["embed"]
 
 
@@ -118,8 +132,17 @@ class LiveUpdateEventJsonTemplate(ThingJsonTemplate):
         return "LiveUpdateEvent"
 
 
-class LiveUpdateEventPage(Templated):
-    def __init__(self, event, listing, show_sidebar):
+REPORT_TYPES = collections.OrderedDict((
+    ("spam", N_("spam")),
+    ("vote-manipulation", N_("vote manipulation")),
+    ("personal-information", N_("personal information")),
+    ("sexualizing-minors", N_("sexualizing minors")),
+    ("site-breaking", N_("breaking reddit")),
+))
+
+
+class LiveUpdateEventApp(Templated):
+    def __init__(self, event, listing, show_sidebar, report_type):
         self.event = event
         self.listing = listing
         if show_sidebar:
@@ -132,6 +155,9 @@ class LiveUpdateEventPage(Templated):
                                    for e in contributor_accounts),
                                    key=lambda e: e.name)
 
+        self.report_types = REPORT_TYPES
+        self.report_type = report_type
+
         Templated.__init__(self)
 
 
@@ -140,11 +166,11 @@ class LiveUpdateEventConfiguration(Templated):
 
 
 class LiveUpdateContributorPermissions(ModeratorPermissions):
-    def __init__(self, account, permissions, embedded=False):
+    def __init__(self, permissions_type, account, permissions, embedded=False):
         ModeratorPermissions.__init__(
             self,
             user=account,
-            permissions_type=ContributorTableItem.type,
+            permissions_type=permissions_type,
             permissions=permissions,
             editable=True,
             embedded=embedded,
@@ -158,7 +184,7 @@ class ContributorTableItem(UserTableItem):
         self.event = event
         self.render_class = ContributorTableItem
         self.permissions = LiveUpdateContributorPermissions(
-            contributor.account, contributor.permissions)
+            self.type, contributor.account, contributor.permissions)
         UserTableItem.__init__(self, contributor.account, editable=editable)
 
     @property
@@ -186,40 +212,64 @@ class ContributorTableItem(UserTableItem):
         return "live/%s/rm_contributor" % self.event._id
 
 
-class ContributorListing(UserListing):
-    type = "liveupdate_contributor"
+class InvitedContributorTableItem(ContributorTableItem):
+    type = "liveupdate_contributor_invite"
+
+    @property
+    def remove_action(self):
+        return "live/%s/rm_contributor_invite" % self.event._id
+
+
+class LiveUpdateInvitedContributorListing(UserListing):
+    type = "liveupdate_contributor_invite"
+
     permissions_form = LiveUpdateContributorPermissions(
+        permissions_type="liveupdate_contributor_invite",
         account=None,
         permissions=ContributorPermissionSet.SUPERUSER,
         embedded=True,
     )
 
-    def __init__(self, event, builder, editable=True):
+    def __init__(self, event, builder, editable=False):
         self.event = event
         UserListing.__init__(self, builder, addable=editable, nextprev=False)
 
     @property
+    def container_name(self):
+        return self.event._id
+
+    @property
     def destination(self):
-        return "live/%s/add_contributor" % self.event._id
+        return "live/%s/invite_contributor" % self.event._id
 
     @property
     def form_title(self):
-        return _("add contributor")
+        return _("invite contributor")
+
+    @property
+    def title(self):
+        return _("invited contributors")
+
+
+class LiveUpdateContributorListing(LiveUpdateInvitedContributorListing):
+    type = "liveupdate_contributor"
+
+    def __init__(self, event, builder, has_invite, is_contributor):
+        self.has_invite = has_invite
+        self.is_contributor = is_contributor
+        super(LiveUpdateContributorListing, self).__init__(
+            event, builder, editable=False)
 
     @property
     def title(self):
         return _("current contributors")
-
-    @property
-    def container_name(self):
-        return self.event._id
 
 
 class LinkBackToLiveUpdate(Templated):
     pass
 
 
-class LiveUpdateEventPageJsonTemplate(JsonTemplate):
+class LiveUpdateEventAppJsonTemplate(JsonTemplate):
     def render(self, thing=None, *a, **kwargs):
         return ObjectTemplate(thing.listing.render() if thing else {})
 
@@ -301,6 +351,12 @@ class LiveUpdateOtherDiscussions(Templated):
         for link in links:
             w = Wrapped(link)
 
+            if w._spam or w._deleted:
+                continue
+
+            if not getattr(w, "allow_liveupdate", True):
+                continue
+
             w.subreddit = subreddits[link.sr_id]
 
             # ideally we'd check if the user can see the subreddit, but by
@@ -321,8 +377,21 @@ class LiveUpdateListing(Listing):
     pass
 
 
+class LiveUpdateReportedEventListing(Listing):
+    def __init__(self, *args, **kwargs):
+        self.report_types = REPORT_TYPES
+        Listing.__init__(self, *args, **kwargs)
+
+
 class LiveUpdateMediaEmbedBody(MediaEmbedBody):
     pass
+
+
+class LiveUpdateReportedEventRow(Wrapped):
+    @property
+    def report_counts(self):
+        for report_type in REPORT_TYPES:
+            yield self.reports_by_type[report_type]
 
 
 def liveupdate_add_props(user, wrapped):
@@ -333,3 +402,7 @@ def liveupdate_add_props(user, wrapped):
         item.author = LiveUpdateAccount(accounts[item.author_id])
 
         item.date_str = pretty_time(item._date)
+
+
+class LiveUpdateCreate(Templated):
+    pass

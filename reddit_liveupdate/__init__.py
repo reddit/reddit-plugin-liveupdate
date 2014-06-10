@@ -1,5 +1,7 @@
 import sys
 
+from pylons.i18n import N_
+
 from r2.config.routing import not_in_sr
 from r2.lib.configparse import ConfigValue
 from r2.lib.js import (
@@ -27,7 +29,20 @@ class MomentTranslations(LocaleSpecificSource):
 class LiveUpdate(Plugin):
     needs_static_build = True
 
+    errors = {
+        "LIVEUPDATE_NO_INVITE_FOUND":
+            N_("there is no pending invite for that stream"),
+        "LIVEUPDATE_TOO_MANY_INVITES":
+            N_("there are too many pending invites outstanding"),
+        "LIVEUPDATE_ALREADY_CONTRIBUTOR":
+            N_("that user is already a contributor"),
+    }
+
     config = {
+        ConfigValue.int: [
+            "liveupdate_invite_quota",
+        ],
+
         ConfigValue.str: [
             "liveupdate_pixel_domain",
         ],
@@ -48,13 +63,16 @@ class LiveUpdate(Plugin):
             "liveupdate/listings.js",
             "liveupdate/notifications.js",
             "liveupdate/statusBar.js",
+            "liveupdate/report.js",
 
             TemplateFileSource("liveupdate/update.html"),
             TemplateFileSource("liveupdate/separator.html"),
             TemplateFileSource("liveupdate/edit-button.html"),
+            TemplateFileSource("liveupdate/reported.html"),
 
             PermissionsDataSource({
                 "liveupdate_contributor": ContributorPermissionSet,
+                "liveupdate_contributor_invite": ContributorPermissionSet,
             }),
 
             localized_appendices=[
@@ -64,6 +82,20 @@ class LiveUpdate(Plugin):
     }
 
     def add_routes(self, mc):
+        mc(
+            "/live/:action",
+            controller="liveupdateevents",
+            conditions={"function": not_in_sr},
+            requirements={"action": "create|reports"},
+        )
+
+        mc(
+            "/api/live/:action",
+            controller="liveupdateevents",
+            conditions={"function": not_in_sr},
+            requirements={"action": "create"},
+        )
+
         mc("/live/:event", controller="liveupdate", action="listing",
            conditions={"function": not_in_sr}, is_embed=False)
 
@@ -86,13 +118,15 @@ class LiveUpdate(Plugin):
     def load_controllers(self):
         from reddit_liveupdate.controllers import (
             LiveUpdateController,
+            LiveUpdateEventsController,
             LiveUpdatePixelController,
         )
 
         from r2.config.templates import api
         from reddit_liveupdate import pages
-        api('liveupdateeventpage', pages.LiveUpdateEventPageJsonTemplate)
+        api('liveupdateeventapp', pages.LiveUpdateEventAppJsonTemplate)
         api('liveupdateevent', pages.LiveUpdateEventJsonTemplate)
+        api('liveupdatereportedeventrow', pages.LiveUpdateEventJsonTemplate)
         api('liveupdate', pages.LiveUpdateJsonTemplate)
 
         from reddit_liveupdate import scraper
