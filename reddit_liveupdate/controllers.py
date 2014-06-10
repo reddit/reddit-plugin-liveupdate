@@ -657,11 +657,7 @@ class LiveUpdateEventBuilder(IDBuilder):
         return LiveUpdateEvent._byID(names, return_dict=False)
 
     def wrap_items(self, items):
-        wrapped = []
-        for item in items:
-            w = self.wrap(item)
-            wrapped.append(w)
-        return wrapped
+        return [self.wrap(item) for item in items]
 
     def keep_item(self, item):
         return True
