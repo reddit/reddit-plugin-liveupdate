@@ -64,28 +64,11 @@
     <section id="report">
     % if c.user_is_admin:
       % if thing.event.banned:
-        <button class="unban" data-action="approve">${_("unban")}</button>
+        <button class="admin unban" data-action="approve">${_("unban")}</button>
         <p class="already-reported">${_("banned by: %(user)s") % dict(user=thing.event.banned_by)}</p>
       % else:
-        <button data-action="ban">${_("ban")}</button>
+        <button class="admin" data-action="ban">${_("ban")}</button>
       % endif
-
-      <script>
-        $(function() {
-          var $button = $('#report button');
-
-          new r.ui.ConfirmButton({el: $button});
-
-          $('#report').on('confirm', function(ev) {
-            r.ajax({
-              type: 'POST',
-              url: '/api/live/${c.liveupdate_event._id}/' + $button.data('action'),
-            }).then(function() {
-              window.location.reload();
-            });
-          })
-        })
-      </script>
     % elif not thing.report_type:
       <button class="report-button"><span>${_("report a rule violation")}</span></button>
 
@@ -95,7 +78,7 @@
 
         <ol>
           % for key, description in thing.report_types.iteritems():
-          <li><label><input type="radio" name="violated-rule" value="${key}">${_(description)}</label></li>
+          <li><label><input type="radio" name="violated-rule" class="report-type" value="${key}">${_(description)}</label></li>
           % endfor
         </ol>
 

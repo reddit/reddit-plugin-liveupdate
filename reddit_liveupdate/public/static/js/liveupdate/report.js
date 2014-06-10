@@ -9,13 +9,17 @@
     events: {
       'click .report-button': 'onOpen',
       'click .cancel': 'onCancel',
-      'change input[type=radio]': 'onReportTypeSelected',
+      'confirm .admin': 'onAdminAction',
+      'change .report-type': 'onReportTypeSelected',
       'submit': 'onSubmit',
     },
 
     initialize: function() {
       this.$button = this.$el.children('.report-button')
       this.$form = this.$el.children('form')
+      this.$adminButton = this.$el.find('button.admin')
+
+      new r.ui.ConfirmButton({el: this.$adminButton})
     },
 
     _setFormVisibility: function(formVisible) {
@@ -60,6 +64,18 @@
       })
 
       ev.preventDefault()
+    },
+
+    onAdminAction: function() {
+      var action = this.$adminButton.data('action')
+      var url = '/api/live/' + r.config.liveupdate_event + '/' + action
+
+      r.ajax({
+        type: 'POST',
+        url: url,
+      }).then(function() {
+        window.location.reload()
+      })
     },
   })
 }(r, Backbone, jQuery, _)
