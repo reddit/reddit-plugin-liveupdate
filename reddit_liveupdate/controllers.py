@@ -651,9 +651,6 @@ class LiveUpdateController(RedditController):
 
         queries.unreport_event(c.liveupdate_event)
 
-        # force clients to refresh to get the ban page
-        _broadcast(type="refresh", payload={})
-
 
 class LiveUpdateEventBuilder(IDBuilder):
     def thing_lookup(self, names):
