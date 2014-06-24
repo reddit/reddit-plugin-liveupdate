@@ -20,9 +20,14 @@ from reddit_liveupdate.models import LiveUpdateStream, LiveUpdateEvent
 from reddit_liveupdate.utils import send_event_broadcast
 
 
+_EMBED_WIDTH = 485
+
+
 def get_live_media_embed(media_object):
     if media_object['type'] == "twitter.com":
         return _TwitterScraper.media_embed(media_object)
+    if media_object["type"] == "embedly-card":
+        return _EmbedlyCardFallbackScraper.media_embed(media_object)
     return get_media_embed(media_object)
 
 
@@ -34,7 +39,7 @@ def queue_parse_embeds(event, liveupdate):
     amqp.add_item('liveupdate_scraper_q', msg)
 
 
-def parse_embeds(event_id, liveupdate_id, maxwidth=485):
+def parse_embeds(event_id, liveupdate_id, maxwidth=_EMBED_WIDTH):
     """Find, scrape, and store any embeddable URLs in this liveupdate.
 
     Return the newly altered liveupdate for convenience.
@@ -53,7 +58,7 @@ def parse_embeds(event_id, liveupdate_id, maxwidth=485):
         return
 
     urls = _extract_isolated_urls(liveupdate.body)
-    liveupdate.media_objects = _scrape_media_objects(urls)
+    liveupdate.media_objects = _scrape_media_objects(urls, maxwidth=maxwidth)
     LiveUpdateStream.add_update(event, liveupdate)
 
     return liveupdate
@@ -74,7 +79,7 @@ def _extract_isolated_urls(md):
     return urls
 
 
-def _scrape_media_objects(urls, autoplay=False, maxwidth=485, max_urls=3):
+def _scrape_media_objects(urls, autoplay=False, maxwidth=_EMBED_WIDTH, max_urls=3):
     """Given a list of URLs, scrape and return the valid media objects."""
     return filter(None, (_scrape_media_object(url,
                                               autoplay=autoplay,
@@ -82,7 +87,7 @@ def _scrape_media_objects(urls, autoplay=False, maxwidth=485, max_urls=3):
                          for url in urls[:max_urls]))
 
 
-def _scrape_media_object(url, autoplay=False, maxwidth=485):
+def _scrape_media_object(url, autoplay=False, maxwidth=_EMBED_WIDTH):
     """Generate a single media object by URL. Returns None on failure."""
     scraper = LiveScraper.for_url(url, autoplay=autoplay, maxwidth=maxwidth)
 
@@ -114,13 +119,54 @@ class LiveScraper(Scraper):
     """
 
     @classmethod
-    def for_url(cls, url, autoplay=False, maxwidth=485):
+    def for_url(cls, url, autoplay=False, maxwidth=_EMBED_WIDTH):
         if (_TwitterScraper.matches(url)):
-            return _TwitterScraper(url)
+            return _TwitterScraper(url, maxwidth=maxwidth)
 
-        return super(LiveScraper, cls).for_url(url,
-                                               autoplay=autoplay,
-                                               maxwidth=maxwidth)
+        scraper = super(LiveScraper, cls).for_url(
+            url, autoplay=autoplay, maxwidth=maxwidth)
+
+        return _EmbedlyCardFallbackScraper(url, scraper)
+
+
+_EMBEDLY_CARD_CONTENT = """\
+<a href="%(url)s" class="embedly-card" data-card-chrome="0">%(url)s</a>
+<script src="//cdn.embedly.com/widgets/platform.js"></script>
+"""
+
+
+class _EmbedlyCardFallbackScraper(Scraper):
+    def __init__(self, url, scraper):
+        self.url = url
+        self.scraper = scraper
+
+    def scrape(self):
+        thumb, media_object, secure_media_object = self.scraper.scrape()
+
+        # ok, the upstream scraper failed so let's make an embedly card
+        if not media_object:
+            media_object = secure_media_object = {
+                "type": "embedly-card",
+                "oembed": {
+                    "width": _EMBED_WIDTH,
+                    "height": 0,
+                    "html": _EMBEDLY_CARD_CONTENT % {
+                        "url": self.url,
+                    },
+                },
+            }
+
+        return thumb, media_object, secure_media_object
+
+    @classmethod
+    def media_embed(cls, media_object):
+        oembed = media_object["oembed"]
+
+        return MediaEmbed(
+            width=oembed["width"],
+            height=oembed["height"],
+            content=oembed["html"],
+        )
 
 
 class _TwitterScraper(Scraper):
@@ -132,7 +178,7 @@ class _TwitterScraper(Scraper):
                                /\d+
                             """, re.X)
 
-    def __init__(self, url, maxwidth=485, omit_script=False):
+    def __init__(self, url, maxwidth, omit_script=False):
         self.url = url
         self.maxwidth = maxwidth
         self.omit_script = False
