@@ -16,6 +16,7 @@ from r2.lib.db import tdb_cassandra
 from r2.lib.media import MediaEmbed, Scraper, get_media_embed
 from r2.lib.utils import sanitize_url
 
+from reddit_liveupdate import pages
 from reddit_liveupdate.models import LiveUpdateStream, LiveUpdateEvent
 from reddit_liveupdate.utils import send_event_broadcast
 
@@ -129,11 +130,6 @@ class LiveScraper(Scraper):
         return _EmbedlyCardFallbackScraper(url, scraper)
 
 
-_EMBEDLY_CARD_CONTENT = """\
-<a href="%(url)s" class="embedly-card" data-card-chrome="0">%(url)s</a>
-<script src="//cdn.embedly.com/widgets/platform.js"></script>
-"""
-
 
 class _EmbedlyCardFallbackScraper(Scraper):
     def __init__(self, url, scraper):
@@ -150,9 +146,7 @@ class _EmbedlyCardFallbackScraper(Scraper):
                 "oembed": {
                     "width": _EMBED_WIDTH,
                     "height": 0,
-                    "html": _EMBEDLY_CARD_CONTENT % {
-                        "url": self.url,
-                    },
+                    "html": pages.EmbedlyCard(self.url).render(style="html"),
                 },
             }
 
