@@ -239,7 +239,11 @@ def process_liveupdate_scraper_q():
     @g.stats.amqp_processor('liveupdate_scraper_q')
     def _handle_q(msg):
         d = json.loads(msg.body)
-        liveupdate = parse_embeds(d['event_id'], d['liveupdate_id'])
+
+        try:
+            liveupdate = parse_embeds(d['event_id'], d['liveupdate_id'])
+        except IOError:
+            return
 
         if not liveupdate.media_objects:
             return
