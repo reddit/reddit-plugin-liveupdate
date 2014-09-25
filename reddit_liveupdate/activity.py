@@ -51,9 +51,9 @@ def update_activity():
         except tdb_cassandra.TRANSIENT_EXCEPTIONS as e:
             g.log.warning("Failed to update event activity for %r: %s",
                           event_id, e)
-
-        events[event_id] = event
-        event_counts[event_id] = count
+        else:
+            events[event_id] = event
+            event_counts[event_id] = count
 
         websockets.send_broadcast(
             "/live/" + event_id,
