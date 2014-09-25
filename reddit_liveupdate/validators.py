@@ -4,11 +4,11 @@ from pylons import c
 from pylons.controllers.util import abort
 
 from r2.lib.validator import (
+    Validator,
     VBoolean,
     VLength,
     VMarkdown,
     VPermissions,
-    Validator,
 )
 from r2.lib.db import tdb_cassandra
 from r2.lib.errors import errors
