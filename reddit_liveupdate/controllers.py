@@ -315,6 +315,15 @@ class LiveUpdateController(RedditController):
                 abort(404)
             c.allow_framing = True
 
+            # interstitial redirects and nsfw settings are funky on the media
+            # domain. just disable nsfw embeds.
+            if c.liveupdate_event.nsfw:
+                embed_page = pages.LiveUpdateEventEmbed(
+                    content=pages.LiveUpdateNSFWEmbed(),
+                )
+                request.environ["usable_error_content"] = embed_page.render()
+                abort(403)
+
             embed_page = pages.LiveUpdateEventEmbed(
                 content=content,
                 page_classes=['liveupdate-app'],
