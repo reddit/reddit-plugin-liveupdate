@@ -176,6 +176,10 @@ class LiveUpdateEventEmbed(LiveUpdateEventPage):
     def __init__(self, *args, **kwargs):
         self.base_url = add_sr(
             "/live/" + c.liveupdate_event._id, force_hostname=True)
+        # add_sr doesn't change the scheme for non-reddit URLs and
+        # g.media_domain (where embeds are) is a non-reddit URL
+        if c.secure:
+            self.base_url = self.base_url.replace("http://", "https://", 1)
         super(LiveUpdateEventEmbed, self).__init__(*args, **kwargs)
 
 
