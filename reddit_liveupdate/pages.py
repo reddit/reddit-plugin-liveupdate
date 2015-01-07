@@ -153,8 +153,8 @@ class LiveUpdateEventAppPage(LiveUpdateEventPage):
             "url": make_event_url(c.liveupdate_event._id),
             "description": description,
             "image": static("liveupdate-logo.png"),
-            "image:width": "600",
-            "image:height": "130",
+            "image:width": "300",
+            "image:height": "300",
             "site_name": g.short_description,
             "ttl": "600",  # have this stuff re-fetched frequently
         }
