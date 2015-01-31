@@ -9,7 +9,7 @@
 <header id="liveupdate-header">
   <h1 id="liveupdate-title">${thing.event.title}</h1>
   % if thing.event.description:
-  <div id="liveupdate-description">
+  <div id="liveupdate-description" class="md-container">
     ${utils.md(thing.event.description, wrap=True)}
   </div>
   % endif

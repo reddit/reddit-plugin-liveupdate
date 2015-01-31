@@ -29,7 +29,7 @@
 
       if (!this.$resourcesEl.length) {
         this.$resourcesEl = $('<section id="liveupdate-resources">')
-        this.$resourcesEl.append($('<h1>' + r._('resources') + '</h1>'))
+        this.$resourcesEl.append($('<h2>' + r._('resources') + '</h2>'))
       }
 
       this.listenTo(this.model, {
