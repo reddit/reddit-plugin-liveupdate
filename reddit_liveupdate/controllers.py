@@ -1115,9 +1115,7 @@ class LiveUpdateAdminController(RedditController):
         featured_thread=VLiveUpdateEventUrl('url'),
     )
     def POST_happening_now(self, featured_thread):
-        if featured_thread:
-            featured_thread = featured_thread._id
-
-        NamedGlobals.set('live_happening_now', featured_thread)
+        NamedGlobals.set('live_happening_now',
+                         getattr(featured_thread, '_id', None))
 
         self.redirect('/admin/happening-now')
