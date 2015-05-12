@@ -534,6 +534,5 @@ class LiveUpdateNSFWEmbed(Templated):
 class HappeningNowAdmin(Templated):
     """Admin page for choosing the promoted reddit live thread."""
 
-    def __init__(self, candidate_threads, current_thread):
-        super(HappeningNowAdmin, self).__init__(candidate_threads=candidate_threads,
-                                                current_thread=current_thread)
+    def __init__(self, current_thread):
+        super(HappeningNowAdmin, self).__init__(current_thread=current_thread)

@@ -1098,20 +1098,12 @@ class LiveUpdateEmbedController(MinimalController):
 class LiveUpdateAdminController(RedditController):
     @validate(VAdmin())
     def GET_happening_now(self):
-        candidate_thread_ids = queries.get_active_events()
-        candidate_threads = LiveUpdateEvent._byID(list(candidate_thread_ids),
-                return_dict=False)
-
-        candidate_threads = filter(lambda t: not (t.banned or
-                                                  t.nsfw or
-                                                  t.state == 'complete'),
-                                   candidate_threads)
         current_thread_id = NamedGlobals.get('live_happening_now', None)
         if current_thread_id:
             current_thread = LiveUpdateEvent._byID(current_thread_id)
         else:
             current_thread = None
-        return AdminPage(content=pages.HappeningNowAdmin(candidate_threads, current_thread),
+        return AdminPage(content=pages.HappeningNowAdmin(current_thread),
                          title='live: happening now',
                          nav_menus=[]).render()
 
