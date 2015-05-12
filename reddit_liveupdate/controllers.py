@@ -99,6 +99,7 @@ REPORTED_MESSAGE = """\
 The live thread [%(title)s](%(url)s) was just reported for %(reason)s.  Please
 see the [reports page](/live/reported) for more information.
 """
+HAPPENING_NOW_KEY = 'live_happening_now'
 
 
 def _broadcast(type, payload):
@@ -1102,7 +1103,7 @@ class LiveUpdateEmbedController(MinimalController):
 class LiveUpdateAdminController(RedditController):
     @validate(VAdmin())
     def GET_happening_now(self):
-        current_thread_id = NamedGlobals.get('live_happening_now', None)
+        current_thread_id = NamedGlobals.get(HAPPENING_NOW_KEY, None)
         if current_thread_id:
             current_thread = LiveUpdateEvent._byID(current_thread_id)
         else:
@@ -1119,7 +1120,7 @@ class LiveUpdateAdminController(RedditController):
         featured_thread=VLiveUpdateEventUrl('url'),
     )
     def POST_happening_now(self, featured_thread):
-        NamedGlobals.set('live_happening_now',
+        NamedGlobals.set(HAPPENING_NOW_KEY,
                          getattr(featured_thread, '_id', None))
 
         self.redirect('/admin/happening-now')
@@ -1139,7 +1140,7 @@ def add_featured_live_thread(controller):
     if getattr(controller, 'listing_obj') and controller.listing_obj.prev:
         return None
 
-    event_id = NamedGlobals.get('live_happening_now', None)
+    event_id = NamedGlobals.get(HAPPENING_NOW_KEY, None)
     if not event_id:
         return None
 
