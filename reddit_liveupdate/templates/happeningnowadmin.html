@@ -1,55 +1,14 @@
-<%namespace file="printablebuttons.html" import="ynbutton"/>
-
-<style type="text/css">
-.tabular {
-    border-collapse: collapse;
-    border-spacing: 0;
-    margin: 10px 0;
-    font-size: 12px;
-}
-
-.tabular th {
-    font-weight: bold;
-}
-
-.tabular th,
-.tabular td {
-    padding: 5px;
-    border: 1px solid #DDD;
-}
-</style>
-
 %if thing.current_thread:
     <div class="infobar">
         warning: we're already featuring a live thread. you shouldn't submit a new link unless you are deleting this one:<br />
-        <a href="/live/${thing.current_thread._id}">${thing.current_thread.title}</a><br />
+        <a href="${thing.current_thread.url()}">${thing.current_thread.title}</a><br />
     </div>
 %endif
 
 <h1>live: happening now</h1>
-<p>all threads will be SFW, not banned, and not marked as complete.</p>
 
-<table class="tabular">
-    <thead>
-        <tr>
-            <th>thread title</th>
-            <th># of active viewers</th>
-            <th>action</th>
-        </tr>
-    </thead>
-    <tbody>
-      %for thread in thing.candidate_threads:
-      <tr>
-        <td><a href="/live/${thread._id}">${thread.title}</a></td>
-        <td>${thread.active_visitors}</td>
-        <td>
-          ${ynbutton('feature this thread', thread._id, 'happening-now',
-                     hidden_data=dict(uh=c.modhash))}
-        </td>
-      </tr>
-      %endfor
-    </tbody>
-</table>
-
-${ynbutton('set no featured thread', None, 'happening-now',
-         hidden_data=dict(uh=c.modhash))}
+<form action="/admin/happening-now" method="POST">
+    <input type="hidden" name="uh" value="${c.modhash}">
+    <input type="url" name="url" size="40" value="${thing.current_thread.url(absolute=True) if thing.current_thread else ''}">
+    <input type="submit">
+</form>

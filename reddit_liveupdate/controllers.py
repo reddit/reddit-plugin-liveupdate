@@ -7,7 +7,7 @@ from pylons import g, c, request, response
 from pylons.i18n import _
 
 from r2.config.extensions import is_api
-from r2.controllers import add_controller, api
+from r2.controllers import add_controller
 from r2.controllers.api_docs import api_doc, api_section
 from r2.controllers.oauth2 import require_oauth2_scope
 from r2.controllers.reddit_base import (
@@ -77,6 +77,7 @@ from reddit_liveupdate.validators import (
     VLiveUpdate,
     VLiveUpdateContributorWithPermission,
     VLiveUpdateEvent,
+    VLiveUpdateEventUrl,
     VLiveUpdatePermissions,
     VLiveUpdateID,
 )
@@ -1114,18 +1115,15 @@ class LiveUpdateAdminController(RedditController):
                          title='live: happening now',
                          nav_menus=[]).render()
 
-    @api.validatedForm(
+    @validate(
         VAdmin(),
         VModhash(),
-        featured_thread=VLiveUpdateEvent('executed'),
+        featured_thread=VLiveUpdateEventUrl('url'),
     )
-    def POST_happening_now(self, form, jquery, featured_thread):
+    def POST_happening_now(self, featured_thread):
         if featured_thread:
             featured_thread = featured_thread._id
 
         NamedGlobals.set('live_happening_now', featured_thread)
 
-        if featured_thread:
-            form.redirect('/live/%s' % featured_thread)
-        else:
-            form.refresh()
+        self.redirect('/admin/happening-now')
