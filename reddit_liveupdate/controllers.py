@@ -1103,9 +1103,11 @@ class LiveUpdateAdminController(RedditController):
             current_thread = LiveUpdateEvent._byID(current_thread_id)
         else:
             current_thread = None
-        return AdminPage(content=pages.HappeningNowAdmin(current_thread),
-                         title='live: happening now',
-                         nav_menus=[]).render()
+        return AdminPage(
+                content=pages.HappeningNowAdmin(current_thread),
+                title='live: happening now',
+                nav_menus=[]
+            ).render()
 
     @validate(
         VAdmin(),
