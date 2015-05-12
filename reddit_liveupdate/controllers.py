@@ -7,7 +7,7 @@ from pylons import g, c, request, response
 from pylons.i18n import _
 
 from r2.config.extensions import is_api
-from r2.controllers import add_controller
+from r2.controllers import add_controller, api
 from r2.controllers.api_docs import api_doc, api_section
 from r2.controllers.oauth2 import require_oauth2_scope
 from r2.controllers.reddit_base import (
@@ -43,6 +43,7 @@ from r2.models import (
     IDBuilder,
     LinkListing,
     Listing,
+    NamedGlobals,
     NotFound,
     QueryBuilder,
     SimpleBuilder,
@@ -51,7 +52,7 @@ from r2.models import (
 from r2.models.admintools import send_system_message
 from r2.lib.errors import errors
 from r2.lib.utils import url_links_builder
-from r2.lib.pages import PaneStack, Wrapped, RedditError, Reddit
+from r2.lib.pages import AdminPage, PaneStack, Wrapped, RedditError, Reddit
 
 from reddit_liveupdate import pages, queries
 from reddit_liveupdate.media_embeds import (
@@ -1090,3 +1091,41 @@ class LiveUpdateEmbedController(MinimalController):
         }
 
         return pages.LiveUpdateMediaEmbedBody(**args).render()
+
+
+@add_controller
+class LiveUpdateAdminController(RedditController):
+    @validate(VAdmin())
+    def GET_happening_now(self):
+        candidate_thread_ids = queries.get_active_events()
+        candidate_threads = LiveUpdateEvent._byID(list(candidate_thread_ids),
+                return_dict=False)
+
+        candidate_threads = filter(lambda t: not (t.banned or
+                                                  t.nsfw or
+                                                  t.state == 'complete'),
+                                   candidate_threads)
+        current_thread_id = NamedGlobals.get('live_happening_now', None)
+        if current_thread_id:
+            current_thread = LiveUpdateEvent._byID(current_thread_id)
+        else:
+            current_thread = None
+        return AdminPage(content=pages.HappeningNowAdmin(candidate_threads, current_thread),
+                         title='live: happening now',
+                         nav_menus=[]).render()
+
+    @api.validatedForm(
+        VAdmin(),
+        VModhash(),
+        featured_thread=VLiveUpdateEvent('executed'),
+    )
+    def POST_happening_now(self, form, jquery, featured_thread):
+        if featured_thread:
+            featured_thread = featured_thread._id
+
+        NamedGlobals.set('live_happening_now', featured_thread)
+
+        if featured_thread:
+            form.redirect('/live/%s' % featured_thread)
+        else:
+            form.refresh()
