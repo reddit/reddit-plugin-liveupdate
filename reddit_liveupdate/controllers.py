@@ -6,6 +6,7 @@ import uuid
 from pylons import g, c, request, response
 from pylons.i18n import _
 
+from r2.config import feature
 from r2.config.extensions import is_api
 from r2.controllers import add_controller
 from r2.controllers.api_docs import api_doc, api_section
@@ -40,6 +41,7 @@ from r2.lib.validator import (
 )
 from r2.models import (
     Account,
+    DefaultSR,
     IDBuilder,
     LinkListing,
     Listing,
@@ -82,6 +84,7 @@ from reddit_liveupdate.validators import (
     VLiveUpdateID,
 )
 
+controller_hooks = hooks.HookRegistrar()
 
 INVITE_MESSAGE = """\
 **oh my! you are invited to become a contributor to [%(title)s](%(url)s)**.
@@ -1094,6 +1097,7 @@ class LiveUpdateEmbedController(MinimalController):
         return pages.LiveUpdateMediaEmbedBody(**args).render()
 
 
+
 @add_controller
 class LiveUpdateAdminController(RedditController):
     @validate(VAdmin())
@@ -1119,3 +1123,29 @@ class LiveUpdateAdminController(RedditController):
                          getattr(featured_thread, '_id', None))
 
         self.redirect('/admin/happening-now')
+
+
+@controller_hooks.on("hot.get_content")
+def add_featured_live_thread(controller):
+    """If we have a live thread featured, display it on the homepage."""
+    if not feature.is_enabled('live_happening_now'):
+        return None
+
+    # Not on front page
+    if not isinstance(c.site, DefaultSR):
+        return None
+
+    # Not on first page of front page
+    if getattr(controller, 'listing_obj') and controller.listing_obj.prev:
+        return None
+
+    event_id = NamedGlobals.get('live_happening_now', None)
+    if not event_id:
+        return None
+
+    try:
+        event = LiveUpdateEvent._byID(event_id)
+    except NotFound:
+        return None
+    else:
+        return pages.LiveUpdateHappeningNowBar(event=event)
