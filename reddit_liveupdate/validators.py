@@ -36,11 +36,11 @@ class VLiveUpdateEventUrl(VLiveUpdateEvent):
             return None
 
         u = UrlParser(url)
-        id = re.match(r'/live/(\w+)/?', u.path)
-        if not id:
+        event_id = re.match(r'/live/(\w+)/?', u.path)
+        if not event_id:
             return None
 
-        return VLiveUpdateEvent.run(self, id.group(1))
+        return VLiveUpdateEvent.run(self, event_id.group(1))
 
 
 class VLiveUpdateID(Validator):
