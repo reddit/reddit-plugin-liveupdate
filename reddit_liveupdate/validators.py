@@ -36,6 +36,10 @@ class VLiveUpdateEventUrl(VLiveUpdateEvent):
             return None
 
         u = UrlParser(url)
+        # TODO: We should probably set error messages in these cases.
+        if not u.is_reddit_url():
+            return None
+
         event_id = re.match(r'/live/(\w+)/?', u.path)
         if not event_id:
             return None
