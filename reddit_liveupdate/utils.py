@@ -24,7 +24,7 @@ def pretty_time(dt, allow_relative=True):
     return format_datetime(
         datetime=dt,
         tzinfo=pytz.UTC,
-        date_format="dd MMM YYYY HH:mm",
+        format=date_format,
         locale=c.locale,
     )
 
