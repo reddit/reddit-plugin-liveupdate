@@ -53,6 +53,7 @@ class LiveUpdatePage(Reddit):
 
 class LiveUpdateMetaPage(LiveUpdatePage):
     def build_toolbars(self):
+        toolbars = []
         if c.user_is_loggedin and c.user.employee:
             tabs = [
                 NavButton(
@@ -81,13 +82,12 @@ class LiveUpdateMetaPage(LiveUpdatePage):
                     ),
                 ])
 
-            return [NavMenu(
+            toolbars.append(NavMenu(
                 tabs,
                 base_path="/live/",
                 type="tabmenu",
-            )]
-        else:
-            return []
+            ))
+        return toolbars
 
 
 class LiveUpdateEventPage(LiveUpdatePage):
