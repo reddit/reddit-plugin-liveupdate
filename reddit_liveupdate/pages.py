@@ -75,12 +75,10 @@ class LiveUpdateMetaPage(LiveUpdatePage):
             ]
 
             if c.user_is_admin:
-                tabs.extend([
-                    NavButton(
+                tabs.append(NavButton(
                         _("reported"),
                         "/reported",
-                    ),
-                ])
+                ))
 
             toolbars.append(NavMenu(
                 tabs,
