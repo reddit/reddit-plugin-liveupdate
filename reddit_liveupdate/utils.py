@@ -10,7 +10,6 @@ from r2.lib import websockets, template_helpers
 
 def pretty_time(dt, allow_relative=True):
     ago = datetime.datetime.now(pytz.UTC) - dt
-    date_format = ''
 
     if allow_relative and ago < datetime.timedelta(hours=24):
         return template_helpers.simplified_timesince(dt)
