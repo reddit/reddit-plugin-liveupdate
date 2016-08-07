@@ -144,6 +144,13 @@ class LiveUpdate(Plugin):
         )
 
         mc(
+            "/live/happening-now",
+            action="happening_now",
+            controller="liveupdateevents",
+            conditions={"function": not_in_sr}
+        )
+
+        mc(
             "/api/live/:action",
             controller="liveupdateevents",
             conditions={"function": not_in_sr},
