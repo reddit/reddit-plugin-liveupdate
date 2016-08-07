@@ -979,6 +979,24 @@ class LiveUpdateEventsController(RedditController):
             page_classes=["liveupdate-home"],
         ).render()
 
+    @require_oauth2_scope("read")
+    @api_doc(
+        section=api_section.live,
+        uri="/live/happening-now",
+    )
+    def GET_happening_now(self):
+        """Redirect to the live thread "happening now".
+
+        "happening now" means it's currently promoted on the frontpage.
+        Will 404 if there is not live thread "happening now".
+        """
+        current_thread_id = NamedGlobals.get(HAPPENING_NOW_KEY, None)
+        if current_thread_id:
+            current_thread = LiveUpdateEvent._byID(current_thread_id)
+            self.redirect(current_thread.url())
+        else:
+            abort(404)
+
     @validate(
         VEmployee(),
         num=VLimit("limit", default=25, max_limit=100),
