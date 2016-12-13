@@ -4,11 +4,11 @@ import urlparse
 from pylons import tmpl_context as c
 from pylons import app_globals as g
 
-from r2.lib.filters import _force_utf8
 from r2.lib.hooks import HookRegistrar
 from r2.lib.media import Scraper, MediaEmbed
 from r2.lib.template_helpers import format_html
 from r2.lib.utils import UrlParser
+from r2.models.subreddit import FakeSubreddit
 
 
 hooks = HookRegistrar()
@@ -43,8 +43,9 @@ class _LiveUpdateScraper(Scraper):
 
         params = {}
         if c.site:  # play it safe when in a qproc
-            if getattr(c.user, "pref_show_stylesheets", True):
-                params["stylesr"] = _force_utf8(c.site.name)
+            if (getattr(c.user, "pref_show_stylesheets", True) and
+                    not isinstance(c.site, FakeSubreddit)):
+                params["stylesr"] = c.site.name
 
         url = urlparse.urlunparse((
             None,
