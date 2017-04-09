@@ -37,14 +37,16 @@ def make_event_url(event_id):
 
 
 class LiveUpdatePage(Reddit):
-    extra_stylesheets = Reddit.extra_stylesheets + ["liveupdate.less"]
-
     def __init__(self, title, content, **kwargs):
+        extra_stylesheets = kwargs.pop("extra_stylesheets", [])
+        extra_stylesheets.append("liveupdate.less")
+
         Reddit.__init__(self,
             title=title,
             show_sidebar=False,
             show_newsletterbar=False,
             content=content,
+            extra_stylesheets=extra_stylesheets,
             **kwargs
         )
 
