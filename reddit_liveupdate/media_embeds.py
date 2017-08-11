@@ -300,8 +300,8 @@ def process_liveupdate_scraper_q():
 
         payload = {
             "liveupdate_id": "LiveUpdate_" + d['liveupdate_id'],
-            "media_embeds": liveupdate.embeds,
-            "mobile_embeds": liveupdate.mobile_embeds,
+            "media_embeds": liveupdate.embeds if liveupdate else None,
+            "mobile_embeds": liveupdate.mobile_embeds if liveupdate else None,
         }
         send_event_broadcast(d['event_id'],
                              type="embeds_ready",
