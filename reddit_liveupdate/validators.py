@@ -133,10 +133,10 @@ class VCountryCode(Validator):
         }
 
     def run(self, geo):
-        loc = iso3166.countries_by_alpha2[geo]
-        if not loc:
+        if geo in iso3166.countries_by_alpha2:
+            return geo
+        else:
             return None
-        return geo
 
 
 EVENT_CONFIGURATION_VALIDATORS = {
