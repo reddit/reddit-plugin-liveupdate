@@ -17,6 +17,7 @@ from r2.lib.utils import UrlParser
 
 from reddit_liveupdate import models
 from reddit_liveupdate.permissions import ContributorPermissionSet
+from reddit_liveupdate.contrib import iso3166
 
 
 class VLiveUpdateEvent(Validator):
@@ -123,6 +124,19 @@ class VLiveUpdatePermissions(VPermissions):
             self.param[1]:
                 "permission description e.g. `+update,+edit,-manage`",
         }
+
+
+class VCountryCode(Validator):
+    def param_docs(self):
+        return {
+            self.param: "an ISO 3166-1 alpha-2 code"
+        }
+
+    def run(self, geo):
+        if geo in iso3166.countries_by_alpha2:
+            return geo
+        else:
+            return None
 
 
 EVENT_CONFIGURATION_VALIDATORS = {

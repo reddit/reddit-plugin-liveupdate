@@ -90,6 +90,7 @@ from reddit_liveupdate.validators import (
     VLiveUpdateEventUrl,
     VLiveUpdatePermissions,
     VLiveUpdateID,
+    VCountryCode,
 )
 from reddit_liveupdate import events as liveupdate_events
 
@@ -1005,7 +1006,10 @@ class LiveUpdateEventsController(RedditController):
         section=api_section.live,
         uri="/api/live/happening_now",
     )
-    def GET_happening_now(self):
+    @validate(
+        geo=VCountryCode()
+    )
+    def GET_happening_now(self, geo):
         """ Get some basic information about the currently featured live thread.
 
             Returns an empty 204 response for api requests if no thread is currently featured.
@@ -1016,7 +1020,7 @@ class LiveUpdateEventsController(RedditController):
         if not is_api() or not feature.is_enabled('live_happening_now'):
             self.abort404()
 
-        featured_event = get_featured_event()
+        featured_event = get_featured_event(geo)
         if not featured_event:
             response.status_code = 204
             return
@@ -1249,10 +1253,13 @@ class LiveUpdateAdminController(RedditController):
         self.redirect('/admin/happening-now')
 
 
-def get_featured_event():
+def get_featured_event(geo=None):
     """Return the currently featured live thread for the given user."""
     featured_events = NamedGlobals.get(HAPPENING_NOW_KEY, None)
-    location = geoip.get_request_location(request, c)
+    if geo:
+        location = geo
+    else:
+        location = geoip.get_request_location(request, c)
     event_id = None
     if featured_events:
         event_id = featured_events.get(location) or featured_events.get("ANY")
