@@ -252,6 +252,17 @@ class LiveUpdateEventJsonTemplate(ThingJsonTemplate):
         return "LiveUpdateEvent"
 
 
+class LiveUpdateFeaturedEventJsonTemplate(LiveUpdateEventJsonTemplate):
+    _data_attrs_ = LiveUpdateEventJsonTemplate.data_attrs(
+        featured_in="featured_in",
+    )
+
+    def thing_attr(self, thing, attr):
+        if attr == "featured_in":
+            return list(thing.featured_in)
+        return LiveUpdateEventJsonTemplate.thing_attr(self, thing, attr)
+
+
 REPORT_TYPES = collections.OrderedDict((
     ("spam", N_("spam")),
     ("vote-manipulation", N_("vote manipulation")),
@@ -533,6 +544,10 @@ class LiveUpdateReportedEventRow(Wrapped):
     def report_counts(self):
         for report_type in REPORT_TYPES:
             yield self.reports_by_type[report_type]
+
+
+class LiveUpdateFeaturedEvent(Wrapped):
+    pass
 
 
 def liveupdate_add_props(user, wrapped):
