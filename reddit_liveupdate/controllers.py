@@ -1054,7 +1054,7 @@ class LiveUpdateEventsController(RedditController):
         builder_cls = LiveUpdateEventBuilder
         wrapper = Wrapped
         listing_cls = Listing
-        require_employee = True
+        require_employee = True  # for grepping: this is used like VEmployee
 
         if filter == "open":
             title = _("live threads")
