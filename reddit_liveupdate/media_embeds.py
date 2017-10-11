@@ -278,7 +278,6 @@ def process_liveupdate_scraper_q():
     def _handle_q(msg):
         d = json.loads(msg.body)
 
-        print d
         event_id = d.get("event_id") or d["event_fullname"][len("LiveUpdateEvent_"):]
         liveupdate_id = d["liveupdate_id"]
 
