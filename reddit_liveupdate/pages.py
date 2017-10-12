@@ -54,12 +54,19 @@ class LiveUpdatePage(Reddit):
 
 class LiveUpdateMetaPage(LiveUpdatePage):
     def build_toolbars(self):
+        tabs = [
+            NavButton(
+                _("reddit live"),
+                "/",
+            ),
+            NavButton(
+                _("happening now"),
+                "/happening_now",
+            ),
+        ]
+
         if c.user_is_loggedin and c.user.employee:
-            tabs = [
-                NavButton(
-                    _("reddit live"),
-                    "/",
-                ),
+            tabs.extend([
                 NavButton(
                     _("active"),
                     "/active",
@@ -72,7 +79,7 @@ class LiveUpdateMetaPage(LiveUpdatePage):
                     _("closed"),
                     "/closed",
                 ),
-            ]
+            ])
 
             if c.user_is_admin:
                 tabs.extend([
@@ -82,13 +89,11 @@ class LiveUpdateMetaPage(LiveUpdatePage):
                     ),
                 ])
 
-            return [NavMenu(
-                tabs,
-                base_path="/live/",
-                type="tabmenu",
-            )]
-        else:
-            return []
+        return [NavMenu(
+            tabs,
+            base_path="/live/",
+            type="tabmenu",
+        )]
 
 
 class LiveUpdateEventPage(LiveUpdatePage):
