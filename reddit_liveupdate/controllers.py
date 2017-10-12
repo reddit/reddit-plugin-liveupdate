@@ -9,7 +9,6 @@ from pylons import app_globals as g
 from pylons.i18n import _
 from thrift.transport.TTransport import TTransportException
 
-from r2.config import feature
 from r2.config.extensions import is_api
 from r2.controllers import add_controller
 from r2.controllers.api_docs import api_doc, api_section
@@ -991,6 +990,21 @@ class LiveUpdateReportedEventBuilder(LiveUpdateEventBuilder):
         return wrapped
 
 
+def featured_event_builder_factory(featured_events):
+    locales_by_id = collections.defaultdict(set)
+    for locale, event_id in featured_events.iteritems():
+        locales_by_id[event_id].add(locale)
+
+    class LiveUpdateFeaturedEventBuilder(LiveUpdateEventBuilder):
+        def wrap_items(self, items):
+            wrapped = LiveUpdateEventBuilder.wrap_items(self, items)
+            for w in wrapped:
+                w.featured_in = locales_by_id.get(w._id)
+            return wrapped
+
+    return LiveUpdateFeaturedEventBuilder
+
+
 @add_controller
 class LiveUpdateEventsController(RedditController):
     def GET_home(self):
@@ -1013,7 +1027,7 @@ class LiveUpdateEventsController(RedditController):
             See also: [/api/live/*thread*/about](#GET_api_live_{thread}_about).
         """
 
-        if not is_api() or not feature.is_enabled('live_happening_now'):
+        if not is_api():
             self.abort404()
 
         featured_event = get_featured_event()
@@ -1026,7 +1040,6 @@ class LiveUpdateEventsController(RedditController):
         return pages.LiveUpdateEventPage(content).render()
 
     @validate(
-        VEmployee(),
         num=VLimit("limit", default=25, max_limit=100),
         after=VLiveUpdateEvent("after"),
         before=VLiveUpdateEvent("before"),
@@ -1041,6 +1054,7 @@ class LiveUpdateEventsController(RedditController):
         builder_cls = LiveUpdateEventBuilder
         wrapper = Wrapped
         listing_cls = Listing
+        require_employee = True  # for grepping: this is used like VEmployee
 
         if filter == "open":
             title = _("live threads")
@@ -1060,8 +1074,19 @@ class LiveUpdateEventsController(RedditController):
             builder_cls = LiveUpdateReportedEventBuilder
             wrapper = pages.LiveUpdateReportedEventRow
             listing_cls = pages.LiveUpdateReportedEventListing
+        elif filter == "happening_now":
+            featured_events = get_all_featured_events()
+
+            title = _("featured threads")
+            query = sorted(set(featured_events.values()))
+            builder_cls = featured_event_builder_factory(featured_events)
+            wrapper = pages.LiveUpdateFeaturedEvent
+            require_employee = False
         else:
             self.abort404()
+
+        if require_employee and not c.user.employee:
+            self.abort403()
 
         builder = builder_cls(
             query,
@@ -1249,13 +1274,15 @@ class LiveUpdateAdminController(RedditController):
         self.redirect('/admin/happening-now')
 
 
+def get_all_featured_events():
+    return NamedGlobals.get(HAPPENING_NOW_KEY, None) or {}
+
+
 def get_featured_event():
     """Return the currently featured live thread for the given user."""
-    featured_events = NamedGlobals.get(HAPPENING_NOW_KEY, None)
     location = geoip.get_request_location(request, c)
-    event_id = None
-    if featured_events:
-        event_id = featured_events.get(location) or featured_events.get("ANY")
+    featured_events = get_all_featured_events()
+    event_id = featured_events.get(location) or featured_events.get("ANY")
 
     if not event_id:
         return None
@@ -1269,9 +1296,6 @@ def get_featured_event():
 @controller_hooks.on("hot.get_content")
 def add_featured_live_thread(controller):
     """If we have a live thread featured, display it on the homepage."""
-    if not feature.is_enabled('live_happening_now'):
-        return None
-
     # Not on front page
     if not isinstance(c.site, DefaultSR):
         return None
