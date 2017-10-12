@@ -147,20 +147,14 @@ class LiveUpdate(Plugin):
             action="listing",
             controller="liveupdateevents",
             conditions={"function": not_in_sr},
-            requirements={"filter": "open|closed|reported|active"},
-        )
-
-        mc(
-            '/api/live/happening_now',
-            controller='liveupdateevents',
-            action='happening_now',
+            requirements={"filter": "open|closed|reported|active|happening_now|mine"},
         )
 
         mc(
             "/api/live/:action",
             controller="liveupdateevents",
             conditions={"function": not_in_sr},
-            requirements={"action": "create"},
+            requirements={"action": "create|happening_now"},
         )
 
         mc("/live/:event", controller="liveupdate", action="listing",
@@ -222,6 +216,7 @@ class LiveUpdate(Plugin):
         api('liveupdatefocusapp', pages.LiveUpdateEventAppJsonTemplate)
         api('liveupdateevent', pages.LiveUpdateEventJsonTemplate)
         api('liveupdatereportedeventrow', pages.LiveUpdateEventJsonTemplate)
+        api('liveupdatefeaturedevent', pages.LiveUpdateFeaturedEventJsonTemplate)
         api('liveupdate', pages.LiveUpdateJsonTemplate)
         api('liveupdatecontributortableitem',
             pages.ContributorTableItemJsonTemplate)
