@@ -82,7 +82,7 @@ def _scrape_mobile_media_objects(urls):
 def _scrape_mobile_media_object(url):
     scraper = _LiveEmbedlyScraper(url)
     try:
-        _, _, _, result = scraper.scrape()
+        _, _, result = scraper.scrape()
         result['oembed']['original_url'] = url
         return result['oembed']
     except:
@@ -104,7 +104,7 @@ def _scrape_media_object(url, autoplay=False, maxwidth=_EMBED_WIDTH):
     scraper = LiveScraper.for_url(url, autoplay=autoplay, maxwidth=maxwidth)
 
     try:
-        thumbnail, preview, _, secure_media_object = scraper.scrape()
+        thumbnail, preview, secure_media_object = scraper.scrape()
     except (HTTPError, URLError):
         g.log.info("Unable to scrape suspected scrapable URL: %r", url)
         return None
@@ -178,7 +178,7 @@ class _EmbedlyCardFallbackScraper(Scraper):
         self.scraper = scraper
 
     def scrape(self):
-        thumb, preview, _, secure_media_object = self.scraper.scrape()
+        thumb, preview, secure_media_object = self.scraper.scrape()
 
         # ok, the upstream scraper failed so let's make an embedly card
         if not secure_media_object:
