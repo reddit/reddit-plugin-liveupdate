@@ -165,11 +165,11 @@ class _LiveEmbedlyScraper(_OEmbedScraper):
 
     def scrape(self):
         if not self.oembed:
-            return None, None, None, None
+            return None, None, None
 
         # Deprecate use of media_object with None, prefer secure
         secure_media_object = self.make_media_object(self.oembed)
-        return None, None, None, secure_media_object
+        return None, None, secure_media_object
 
 
 class _EmbedlyCardFallbackScraper(Scraper):
@@ -192,7 +192,7 @@ class _EmbedlyCardFallbackScraper(Scraper):
             }
 
         # Deprecate use of media_object with None, prefer secure
-        return thumb, preview, None, secure_media_object
+        return thumb, preview, secure_media_object
 
     @classmethod
     def media_embed(cls, media_object):
@@ -245,14 +245,13 @@ class _TwitterScraper(Scraper):
     def scrape(self):
         oembed = self._fetch_from_twitter()
         if not oembed:
-            return None, None, None, None
+            return None, None, None
 
         media_object = self._make_media_object(oembed)
 
         return (
             None,  # no thumbnails for twitter
             None,
-            None, # Deprecate use of media_object with None, prefer secure
             media_object,  # Twitter's response is ssl ready by default
         )
 
